@@ -13,7 +13,7 @@ const NAV_ITEMS = [
 
 const SEMESTERS = [1, 2, 3, 4, 5, 6, 7, 8];
 const DIVISIONS = ["None", "A", "B"];
-const API_BASE = "http://localhost:5000/api/classes";
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
 const buildClassId = (admYear, passOutYear, division) => {
   const div = division && division !== "None" ? `-${division}` : "";
