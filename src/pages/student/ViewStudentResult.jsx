@@ -7,7 +7,9 @@ const NAV_ITEMS = [
   { label: "View Answer Key", icon: "📖", path: "/student/answer-key" },
   { label: "View Result", icon: "📊", path: "/student/result", active: true },
 ];
+
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
+
 const ViewResult = () => {
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem("user"));
@@ -22,11 +24,9 @@ const ViewResult = () => {
 
   const [message, setMessage] = useState("");
   const [reason, setReason] = useState("");
-const [showRevalBox, setShowRevalBox] = useState(false);
+  const [showRevalBox, setShowRevalBox] = useState(false);
 
-  /* ---------------------------------------
-     LOAD COURSES FOR STUDENT
-  --------------------------------------- */
+  /* LOAD COURSES */
   useEffect(() => {
     const fetchCourses = async () => {
       try {
@@ -44,9 +44,7 @@ const [showRevalBox, setShowRevalBox] = useState(false);
     if (user?.rollNo) fetchCourses();
   }, [user?.rollNo]);
 
-  /* ---------------------------------------
-     VIEW RESULT
-  --------------------------------------- */
+  /* VIEW RESULT */
   const handleView = async () => {
     if (!course || !exam) {
       alert("Please select both a course and exam");
@@ -93,9 +91,7 @@ const [showRevalBox, setShowRevalBox] = useState(false);
     setRevalStatus(null);
   };
 
-  /* ---------------------------------------
-     REVALUATION REQUEST
-  --------------------------------------- */
+  /* REVALUATION REQUEST */
   const handleRequestReval = async () => {
     setRevalStatus("pending");
 
@@ -113,7 +109,7 @@ const [showRevalBox, setShowRevalBox] = useState(false);
           classId: savedUser.classId,
           course: course,
           examType: exam,
-          studentReason: reason 
+          studentReason: reason,
         }),
       });
 
@@ -133,20 +129,18 @@ const [showRevalBox, setShowRevalBox] = useState(false);
     }
   };
 
-  /* ---------------------------------------
-     CALCULATE TOTAL
-  --------------------------------------- */
+  /* CALCULATE TOTAL */
   const validQuestions = result?.questions?.filter((q) => !q.excluded) || [];
 
- const total = validQuestions.reduce(
-  (sum, q) => sum + Number(q.marks || 0),
-  0
-);
+  const total = validQuestions.reduce(
+    (sum, q) => sum + Number(q.marks || 0),
+    0
+  );
 
-const maxTotal = validQuestions.reduce(
-  (sum, q) => sum + Number(q.max || 0),
-  0
-);
+  const maxTotal = validQuestions.reduce(
+    (sum, q) => sum + Number(q.maxMarks || 0),
+    0
+  );
 
   const pct = maxTotal ? Math.round((Number(total) / maxTotal) * 100) : 0;
 
@@ -251,7 +245,6 @@ const maxTotal = validQuestions.reduce(
                 <h3>
                   {exam} — {course}
                 </h3>
-
                 <p>Roll No: {user.rollNo}</p>
               </div>
 
@@ -268,7 +261,7 @@ const maxTotal = validQuestions.reduce(
                 <tr>
                   <th>Question</th>
                   <th>Marks</th>
-                  <th>Max</th>
+                  <th>Max Marks</th>
                   <th>Reason</th>
                 </tr>
               </thead>
@@ -285,9 +278,11 @@ const maxTotal = validQuestions.reduce(
                     <tr key={q.question}>
                       <td>{q.question}</td>
                       <td>{q.marks}</td>
-                      <td>{q.max}</td>
+                      <td>{q.maxMarks}</td>
                       <td>
-                        {q.marks < q.max ? q.deductionReason : "✓ Full marks"}
+                        {q.marks < q.maxMarks
+                          ? q.deductionReason
+                          : "✓ Full marks"}
                       </td>
                     </tr>
                   ))
@@ -296,38 +291,40 @@ const maxTotal = validQuestions.reduce(
             </table>
 
             <div style={{ marginTop: "20px", textAlign: "right" }}>
-             <button
-  className="com-btn reval-btn"
-  onClick={() => setShowRevalBox(true)}
->
-  Request Revaluation
-</button>
-              {showRevalBox && (
-  <div style={{ marginTop: "20px" }}>
-    <textarea
-      placeholder="Enter reason for revaluation..."
-      value={reason}
-      onChange={(e) => setReason(e.target.value)}
-      style={{
-        width: "100%",
-        height: "80px",
-        padding: "10px",
-        marginBottom: "10px"
-      }}
-    />
+              {revalStatus !== "submitted" && (
+                <button
+                  className="com-btn reval-btn"
+                  onClick={() => setShowRevalBox(true)}
+                >
+                  Request Revaluation
+                </button>
+              )}
 
-    <button
-      className="com-btn"
-      onClick={handleRequestReval}
-    >
-      Submit Request
-    </button>
-  </div>
-)}
-                {revalStatus === "submitted"
-                  ? "Reval Requested ✓"
-                  : "Request Revaluation"}
-              </button>
+              {revalStatus === "submitted" && (
+                <p style={{ color: "green", fontWeight: "bold" }}>
+                  Revaluation Requested ✓
+                </p>
+              )}
+
+              {showRevalBox && (
+                <div style={{ marginTop: "20px" }}>
+                  <textarea
+                    placeholder="Enter reason for revaluation..."
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    style={{
+                      width: "100%",
+                      height: "80px",
+                      padding: "10px",
+                      marginBottom: "10px",
+                    }}
+                  />
+
+                  <button className="com-btn" onClick={handleRequestReval}>
+                    Submit Request
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
