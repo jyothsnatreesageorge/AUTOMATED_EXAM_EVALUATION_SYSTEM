@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { label: "Manage Class", icon: "🏫", path: "/admin/add-class" },
   { label: "Course Mapping", icon: "🔗", path: "/admin/course-mapping" },
 ];
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
 const TeacherManagement = () => {
 
@@ -30,7 +31,7 @@ const TeacherManagement = () => {
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editPhone, setEditPhone] = useState("");
-  const API = "http://localhost:5000/api/teachers";
+  const API = " ${API_BASE}/api/teachers";
 
   useEffect(() => {
     fetchTeachers();
