@@ -50,7 +50,7 @@ const ManageClass = () => {
 
   const fetchClasses = async () => {
     try {
-      const res = await fetch(API_BASE);
+      const res = await fetch(${API_BASE}/api/classes);
       const data = await res.json();
 
       if (!res.ok) throw new Error(data?.message || "Failed to fetch classes");
@@ -75,7 +75,7 @@ const ManageClass = () => {
     const classId = buildClassId(admYear, passOutYear, division);
 
     try {
-      const res = await fetch(API_BASE, {
+      const res = await fetch(${API_BASE}/api/classes, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -105,7 +105,7 @@ const ManageClass = () => {
 
   const handleSemesterSave = async (classId) => {
     try {
-      const res = await fetch(`${API_BASE}/${classId}`, {
+      const res = await fetch(`${API_BASE}/api/classes/${classId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ semester: editSemester }),
@@ -125,7 +125,7 @@ const ManageClass = () => {
 
   const handleDeleteConfirm = async () => {
     try {
-      const res = await fetch(`${API_BASE}/${deleteClassId}`, {
+      const res = await fetch(`${API_BASE}/api/classes/${deleteClassId}`, {
         method: "DELETE",
       });
 
