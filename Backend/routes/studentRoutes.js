@@ -128,6 +128,7 @@ router.get("/courses/:rollNo", async (req, res) => {
 });
 
 // GET STUDENT RESULT
+// GET STUDENT RESULT
 router.post("/result", async (req, res) => {
   try {
     const { rollNo, course, examType } = req.body;
@@ -165,7 +166,6 @@ router.post("/result", async (req, res) => {
 
     const questions = [];
 
-    // skip first data cell because it is the roll/identifier ("D")
     let dataIndex = 1;
 
     for (let i = 1; i < headerCells.length; i += 4) {
@@ -182,7 +182,7 @@ router.post("/result", async (req, res) => {
       if (!isNaN(max) && !isNaN(marks)) {
         questions.push({
           question: questionLabel,
-          max,
+          maxMarks: max,   // FIXED
           marks,
           deductionReason: reason,
           excluded: /not counted in total/i.test(reason),
