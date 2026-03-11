@@ -623,7 +623,11 @@ const StudentManagement = () => {
                 onChange={setBatchSemValue}
                 placeholder="Select New Semester"
               />
-              <button className="com-btn primary-btn" onClick={handleBatchSemesterUpdate}>
+              <button
+                className="com-btn primary-btn"
+                onClick={handleBatchSemesterUpdate}
+                style={{ width: "200px" }}
+              >
                 Apply
               </button>
             </div>
