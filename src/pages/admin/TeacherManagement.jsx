@@ -31,7 +31,7 @@ const TeacherManagement = () => {
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editPhone, setEditPhone] = useState("");
-  const API = " ${API_BASE}/api/teachers";
+  const API = `${API_BASE}/api/teachers`;
 
   useEffect(() => {
     fetchTeachers();
