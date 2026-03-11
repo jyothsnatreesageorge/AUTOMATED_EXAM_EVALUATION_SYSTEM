@@ -15,7 +15,6 @@ const ROLE_ROUTES = {
 };
 
 const Login = () => {
-
   const navigate = useNavigate();
 
   const [username, setUsername] = useState("");
@@ -29,25 +28,16 @@ const Login = () => {
   );
 
   const isDark = theme === "dark";
-
-  /* -------------------------
-     AUTO REDIRECT IF LOGGED
-  ------------------------- */
+  const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
   useEffect(() => {
-
     const token = localStorage.getItem("token");
     const savedRole = localStorage.getItem("role");
 
-    if (token && savedRole) {
+    if (token && savedRole && ROLE_ROUTES[savedRole]) {
       navigate(ROLE_ROUTES[savedRole]);
     }
-
   }, [navigate]);
-
-  /* -------------------------
-       THEME TOGGLE
-  ------------------------- */
 
   const toggleTheme = () => {
     const next = isDark ? "light" : "dark";
@@ -56,119 +46,75 @@ const Login = () => {
     localStorage.setItem("sage-theme", next);
   };
 
-  /* -------------------------
-          LOGIN
-  ------------------------- */
+  const handleLogin = async () => {
+    setError("");
 
-  const API_BASE = import.meta.env.VITE_API_BASE_URL;
-
-const handleLogin = async () => {
-  setError("");
-
-  if (!username.trim() || !password.trim()) {
-    setError("Please enter username and password.");
-    return;
-  }
-
-  let url = "";
-
-  if (role === "student") {
-    url = `${API_BASE}/api/students/login`;
-  } else if (role === "teacher") {
-    url = `${API_BASE}/api/teacherlogin/login`;
-  } else if (role === "admin") {
-    url = `${API_BASE}/api/admin/login`;
-  }
-
-  try {
-    setLoading(true);
-
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: username, password }),
-    });
-
-    const data = await response.json();
-
-    if (response.ok) {
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("role", role);
-
-      let userData;
-      if (role === "student") userData = data.student;
-      else if (role === "teacher") userData = data.teacher;
-      else if (role === "admin") userData = data.admin;
-
-      localStorage.setItem("user", JSON.stringify({ ...userData, role }));
-      navigate(ROLE_ROUTES[role]);
-    } else {
-      setError(data.message || "Invalid credentials");
+    if (!username.trim() || !password.trim()) {
+      setError("Please enter username and password.");
+      return;
     }
-  } catch (err) {
-    setError("Cannot reach backend server.");
-  } finally {
-    setLoading(false);
-  }
-};
+
+    if (!API_BASE) {
+      setError("Backend URL is not configured.");
+      return;
+    }
+
+    let url = "";
+
+    if (role === "student") {
+      url = `${API_BASE}/api/students/login`;
+    } else if (role === "teacher") {
+      url = `${API_BASE}/api/teacherlogin/login`;
+    } else if (role === "admin") {
+      url = `${API_BASE}/api/admin/login`;
+    }
 
     try {
-
       setLoading(true);
 
       const response = await fetch(url, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           email: username,
-          password
-        })
+          password,
+        }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
-
         localStorage.setItem("token", data.token);
         localStorage.setItem("role", role);
 
-        // save logged in user
-       let userData;
+        let userData;
 
-if (role === "student") {
-  userData = data.student;
-}
-else if (role === "teacher") {
-  userData = data.teacher;
-}
-else if (role === "admin") {
-  userData = data.admin;
-}
+        if (role === "student") {
+          userData = data.student;
+        } else if (role === "teacher") {
+          userData = data.teacher;
+        } else if (role === "admin") {
+          userData = data.admin;
+        }
 
-localStorage.setItem(
-  "user",
-  JSON.stringify({
-    ...userData,
-    role: role
-  })
-);
+        localStorage.setItem(
+          "user",
+          JSON.stringify({
+            ...userData,
+            role,
+          })
+        );
 
         navigate(ROLE_ROUTES[role]);
-
       } else {
         setError(data.message || "Invalid credentials");
       }
-
     } catch (err) {
-
-      setError("Server error. Please try again.");
-
+      setError("Cannot reach backend server.");
     } finally {
-
       setLoading(false);
-
     }
   };
 
@@ -178,9 +124,6 @@ localStorage.setItem(
 
   return (
     <div className="login-page">
-
-      {/* LEFT PANEL */}
-
       <div className="login-left">
         <div className="login-left-glow" />
 
@@ -199,18 +142,12 @@ localStorage.setItem(
         </div>
       </div>
 
-      {/* RIGHT PANEL */}
-
       <div className="login-right">
-
         <div className="login-card">
-
           <p className="login-card-logo">SAGE</p>
 
           <h2>Welcome Back</h2>
           <p className="subtitle">Sign in to continue</p>
-
-          {/* ROLE SELECTOR */}
 
           <div className="role-selector">
             {ROLES.map(({ id, icon, label }) => (
@@ -226,8 +163,6 @@ localStorage.setItem(
             ))}
           </div>
 
-          {/* EMAIL */}
-
           <div className="form-row">
             <label>Email</label>
             <input
@@ -241,8 +176,6 @@ localStorage.setItem(
               onKeyDown={handleKeyDown}
             />
           </div>
-
-          {/* PASSWORD */}
 
           <div className="form-row">
             <label>Password</label>
@@ -258,8 +191,6 @@ localStorage.setItem(
             />
           </div>
 
-          {/* LOGIN BUTTON */}
-
           <button
             className="login-btn"
             onClick={handleLogin}
@@ -268,10 +199,7 @@ localStorage.setItem(
             {loading ? "Signing in..." : "Sign In →"}
           </button>
 
-          {/* THEME SWITCH */}
-
           <div className="theme-switch-wrapper">
-
             <label className="theme-switch">
               <input
                 type="checkbox"
@@ -282,15 +210,11 @@ localStorage.setItem(
             </label>
 
             <span>{isDark ? "Dark Mode" : "Light Mode"}</span>
-
           </div>
 
           {error && <p className="login-error">{error}</p>}
-
         </div>
-
       </div>
-
     </div>
   );
 };
