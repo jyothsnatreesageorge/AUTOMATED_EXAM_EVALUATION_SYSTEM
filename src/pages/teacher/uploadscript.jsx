@@ -10,7 +10,7 @@ const NAV_ITEMS = [
   { label: "Revaluation", icon: "🔄", path: "/revaluation" },
   {label:"My Classes",icon:"🏫",path:"/courseclass"},
 ];
-
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
 /* ── Buffering Modal ── */
 const EvaluatingModal = () => (
   <div className="eval-overlay">
@@ -120,7 +120,7 @@ const UploadScripts = () => {
     });
 
     const uploadRes = await fetch(
-      "http://localhost:5000/api/upload/evaluation-materials",
+      "${API_BASE}/api/upload/evaluation-materials",
       {
         method: "POST",
         body: formData,
@@ -144,7 +144,7 @@ const UploadScripts = () => {
     console.log("Upload success:", uploadData);
 
     // ---------- Evaluate ----------
-    const evalRes = await fetch("http://localhost:5000/api/evaluation/run", {
+    const evalRes = await fetch("${API_BASE}/api/evaluation/run", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
