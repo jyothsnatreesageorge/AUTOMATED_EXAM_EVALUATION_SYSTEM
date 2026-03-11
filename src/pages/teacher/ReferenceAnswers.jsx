@@ -28,7 +28,7 @@ const ReferenceAnswer = () => {
   // Load Dropdown Data
   // ===============================
   useEffect(() => {
-    fetch("http://localhost:5000/api/reference/dropdowns")
+    fetch("${API_BASE}/api/reference/dropdowns")
       .then(res => res.json())
       .then(data => {
         setClasses(data.classes);
@@ -48,7 +48,7 @@ const ReferenceAnswer = () => {
     }
 
     const res = await fetch(
-      "http://localhost:5000/api/reference/view",
+      "${API_BASE}/api/reference/view",
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -79,7 +79,7 @@ window.open(data.fileUrl, "_blank");
   // ===============================
   const handleApprove = async () => {
     await fetch(
-      `http://localhost:5000/api/reference/approve/${reference._id}`,
+      `${API_BASE}/api/reference/approve/${reference._id}`,
       { method: "PUT" }
     );
 
@@ -126,7 +126,7 @@ window.open(data.fileUrl, "_blank");
       if (!value) return;
 
       const res = await fetch(
-        `http://localhost:5000/api/reference/courses/${value}`
+        `${API_BASE}/api/reference/courses/${value}`
       );
 
       const data = await res.json();
