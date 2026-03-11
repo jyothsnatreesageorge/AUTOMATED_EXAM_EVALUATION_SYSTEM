@@ -14,8 +14,7 @@ const NAV_ITEMS = [
 
 const SEMESTERS = [1, 2, 3, 4, 5, 6, 7, 8];
 
-const API_BASE = "http://localhost:5000/api/students";
-const CLASS_API = "http://localhost:5000/api/classes";
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
 const SemesterSelect = ({ value, onChange, placeholder = "Select Semester", className = "" }) => (
   <select
