@@ -33,6 +33,11 @@ app.get("/", (req, res) => {
     status: "ok"
   });
 });
+app.use(cors({
+  origin: "https://smartautomatedgradingengine.vercel.app",
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+}));
 
 
 // Connect DB
