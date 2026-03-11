@@ -21,6 +21,8 @@ const ViewResult = () => {
   const [revalStatus, setRevalStatus] = useState(null);
 
   const [message, setMessage] = useState("");
+  const [reason, setReason] = useState("");
+const [showRevalBox, setShowRevalBox] = useState(false);
 
   /* ---------------------------------------
      LOAD COURSES FOR STUDENT
@@ -111,6 +113,7 @@ const ViewResult = () => {
           classId: savedUser.classId,
           course: course,
           examType: exam,
+          studentReason: reason 
         }),
       });
 
@@ -293,7 +296,34 @@ const maxTotal = validQuestions.reduce(
             </table>
 
             <div style={{ marginTop: "20px", textAlign: "right" }}>
-              <button className="com-btn reval-btn" onClick={handleRequestReval}>
+             <button
+  className="com-btn reval-btn"
+  onClick={() => setShowRevalBox(true)}
+>
+  Request Revaluation
+</button>
+              {showRevalBox && (
+  <div style={{ marginTop: "20px" }}>
+    <textarea
+      placeholder="Enter reason for revaluation..."
+      value={reason}
+      onChange={(e) => setReason(e.target.value)}
+      style={{
+        width: "100%",
+        height: "80px",
+        padding: "10px",
+        marginBottom: "10px"
+      }}
+    />
+
+    <button
+      className="com-btn"
+      onClick={handleRequestReval}
+    >
+      Submit Request
+    </button>
+  </div>
+)}
                 {revalStatus === "submitted"
                   ? "Reval Requested ✓"
                   : "Request Revaluation"}
