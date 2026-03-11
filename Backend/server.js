@@ -27,7 +27,12 @@ app.use(express.json());
 app.get("/api/health", (req, res) => {
   res.json({ ok: true });
 });
-
+app.get("/", (req, res) => {
+  res.status(200).json({
+    message: "Backend is live",
+    status: "ok"
+  });
+});
 
 
 // Connect DB
