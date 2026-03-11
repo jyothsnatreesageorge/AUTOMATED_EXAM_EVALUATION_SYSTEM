@@ -68,7 +68,7 @@ const StudentManagement = () => {
   const [editEmail, setEditEmail] = useState("");
 
   const fetchClasses = async () => {
-    const res = await fetch(CLASS_API);
+    const res = await fetch( ${API_BASE}/api/classes);
     const data = await res.json();
     if (!res.ok) throw new Error(data?.message || "Failed to fetch classes");
     setClassesList(Array.isArray(data) ? data : []);
@@ -79,7 +79,7 @@ const StudentManagement = () => {
   if (search.trim()) params.set("q", search.trim());
   if (filterClass !== "All") params.set("classId", filterClass);
 
-  const url = params.toString() ? `${API_BASE}?${params.toString()}` : API_BASE;
+  const url = params.toString() ? `${API_BASE}/api/students?${params.toString()}` : ${API_BASE}/api/students;
   console.log("Fetching students from:", url);
 
   const res = await fetch(url);
@@ -133,7 +133,7 @@ const filtered = students.filter((s) => {
         email: newEmail.trim(),
       };
 
-      const res = await fetch(API_BASE, {
+      const res = await fetch(${API_BASE}/api/students, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -182,7 +182,7 @@ const filtered = students.filter((s) => {
         email: editEmail.trim(),
       };
 
-      const res = await fetch(`${API_BASE}/${mongoId}`, {
+      const res = await fetch(`${API_BASE}/api/students/${mongoId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -203,7 +203,7 @@ const filtered = students.filter((s) => {
 
     try {
       if (deleteTarget.type === "student") {
-        const res = await fetch(`${API_BASE}/${deleteTarget.value}`, { method: "DELETE" });
+        const res = await fetch(`${API_BASE}/api/students/${deleteTarget.value}`, { method: "DELETE" });
         const data = await res.json();
         if (!res.ok) throw new Error(data?.message || "Failed to delete student");
       }
@@ -252,7 +252,7 @@ const filtered = students.filter((s) => {
     try {
       await Promise.all(
         targets.map((s) =>
-          fetch(`${API_BASE}/${s._id}`, {
+          fetch(`${API_BASE}/api/students/${s._id}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -334,7 +334,7 @@ const handleBatchUpload = async () => {
       return;
     }
 
-    const res = await fetch(`${API_BASE}/batch`, {
+    const res = await fetch(`${API_BASE}/api/students/batch`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ rows }),
