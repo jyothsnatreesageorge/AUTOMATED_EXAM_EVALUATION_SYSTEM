@@ -36,15 +36,15 @@ const fetchData = async () => {
 
 try {
 
-const classRes = await fetch("${API_BASE}/api/course-mapping/classes");
+const classRes = await fetch(`${API_BASE}/api/course-mapping/classes`);
 const classData = await classRes.json();
 setClasses(Array.isArray(classData) ? classData : []);
 
-const courseRes = await fetch("${API_BASE}/api/course-mapping/courses");
+const courseRes = await fetch(`${API_BASE}/api/course-mapping/courses`);
 const courseData = await courseRes.json();
 setCourses(Array.isArray(courseData) ? courseData : []);
 
-const teacherRes = await fetch("${API_BASE}/api/course-mapping/teachers");
+const teacherRes = await fetch(`${API_BASE}/api/course-mapping/teachers`);
 const teacherData = await teacherRes.json();
 setTeachers(Array.isArray(teacherData) ? teacherData : []);
 
@@ -69,7 +69,7 @@ return;
 
 try {
 
-const response = await fetch("${API_BASE}/api/course-mapping", {
+const response = await fetch(`${API_BASE}/api/course-mapping`, {
 method: "POST",
 headers: { "Content-Type": "application/json" },
 body: JSON.stringify({
@@ -115,7 +115,7 @@ const fetchMappings = async () => {
 
 try {
 
-const res = await fetch("${API_BASE}/api/course-mapping/mappings");
+const res = await fetch(`${API_BASE}/api/course-mapping/mappings`);
 const data = await res.json();
 
 setMappings(Array.isArray(data) ? data : []);
