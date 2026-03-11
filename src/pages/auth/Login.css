@@ -1,75 +1,286 @@
-* {
-  box-sizing: border-box;
-  font-family: "Segoe UI", sans-serif;
+/* ================= LOGIN PAGE ================= */
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap');
+
+/* ── Shared ── */
+:root {
+  --font-display:  'Syne', sans-serif;
+  --font-body:     'DM Sans', sans-serif;
+  --r-md:   12px;
+  --r-lg:   18px;
+  --r-xl:   24px;
+  --r-full: 9999px;
 }
 
+/* ── DEFAULT (before JS sets data-theme) — dark ── */
+:root {
+  --bg:            #0C1A1F;
+  --bg-surface:    #111F25;
+  --bg-raised:     #162830;
+  --border:        rgba(122, 226, 207, 0.12);
+  --border-bright: rgba(122, 226, 207, 0.30);
+  --primary:       #0AADAD;
+  --primary-glow:  rgba(10, 173, 173, 0.25);
+  --accent:        #7AE2CF;
+  --accent-soft:   rgba(122, 226, 207, 0.08);
+  --accent-mid:    rgba(122, 226, 207, 0.18);
+  --text-1:        #EAF0F0;
+  --text-2:        #8BAAAD;
+  --text-3:        #4D6E72;
+  --text-inv:      #0C1A1F;
+  --shadow-lg:     0 24px 64px rgba(0, 0, 0, 0.6);
+  --glow-teal:     0 0 32px rgba(10, 173, 173, 0.28);
+  --glow-mint:     0 0 20px rgba(122, 226, 207, 0.18);
+}
+
+/* ── DARK THEME (explicit) ── */
+[data-theme="dark"] {
+  --bg:            #0C1A1F;
+  --bg-surface:    #111F25;
+  --bg-raised:     #162830;
+  --border:        rgba(122, 226, 207, 0.12);
+  --border-bright: rgba(122, 226, 207, 0.30);
+  --primary:       #0AADAD;
+  --primary-glow:  rgba(10, 173, 173, 0.25);
+  --accent:        #7AE2CF;
+  --accent-soft:   rgba(122, 226, 207, 0.08);
+  --accent-mid:    rgba(122, 226, 207, 0.18);
+  --text-1:        #EAF0F0;
+  --text-2:        #8BAAAD;
+  --text-3:        #4D6E72;
+  --text-inv:      #0C1A1F;
+  --shadow-lg:     0 24px 64px rgba(0, 0, 0, 0.6);
+  --glow-teal:     0 0 32px rgba(10, 173, 173, 0.28);
+  --glow-mint:     0 0 20px rgba(122, 226, 207, 0.18);
+}
+
+/* ── LIGHT THEME ── */
+[data-theme="light"] {
+  --bg:            #F4F7F7;
+  --bg-surface:    #FFFFFF;
+  --bg-raised:     #EDF3F3;
+  --border:        rgba(7, 122, 125, 0.12);
+  --border-bright: rgba(7, 122, 125, 0.30);
+  --primary:       #077A7D;
+  --primary-glow:  rgba(7, 122, 125, 0.18);
+  --accent:        #0AADAD;
+  --accent-soft:   rgba(7, 122, 125, 0.07);
+  --accent-mid:    rgba(7, 122, 125, 0.14);
+  --text-1:        #0C1A1F;
+  --text-2:        #3D6368;
+  --text-3:        #8BAAAD;
+  --text-inv:      #FFFFFF;
+  --shadow-lg:     0 24px 64px rgba(6, 32, 43, 0.14);
+  --glow-teal:     0 0 32px rgba(7, 122, 125, 0.20);
+  --glow-mint:     0 0 20px rgba(10, 173, 173, 0.15);
+}
+
+/* Smooth theme transitions */
+*, *::before, *::after {
+  transition:
+    background-color 0.25s ease,
+    border-color     0.25s ease,
+    color            0.20s ease,
+    box-shadow       0.25s ease;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Page shell ── */
 .login-page {
   display: flex;
   height: 100vh;
   width: 100%;
+  overflow: hidden;
 }
 
-/* Left Side */
+/* ── Left panel ── */
 .login-left {
-  flex: 1;
-  background: url("https://images.unsplash.com/photo-1524995997946-a1c2e315a42f")
-    center/cover no-repeat;
+  flex: 1.1;
   position: relative;
-}
-
-.login-left .overlay {
-  height: 100%;
-  width: 100%;
-  background: linear-gradient(
-    rgba(40, 58, 140, 0.85),
-    rgba(40, 58, 140, 0.85)
-  );
+  background: var(--bg-surface);
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  color: #fff;
+  overflow: hidden;
+}
+
+/* Grid texture */
+.login-left::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 44px 44px;
+  opacity: 0.5;
+  z-index: 0;
+}
+
+/* Ambient glow orbs */
+.login-left::after {
+  content: '';
+  position: absolute;
+  bottom: -80px;
+  right: -80px;
+  width: 360px;
+  height: 360px;
+  background: var(--primary-glow);
+  border-radius: 50%;
+  filter: blur(90px);
+  z-index: 0;
+}
+
+.login-left-glow {
+  position: absolute;
+  top: -60px;
+  left: -60px;
+  width: 280px;
+  height: 280px;
+  background: rgba(122, 226, 207, 0.08);
+  border-radius: 50%;
+  filter: blur(80px);
+  z-index: 0;
+}
+
+.login-left-content {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  padding: 40px;
 }
 
 .site-name {
-  font-size: 52px;
-  letter-spacing: 3px;
-  margin-bottom: 10px;
+  font-family: var(--font-display);
+  font-size: 72px;
+  font-weight: 800;
+  letter-spacing: 8px;
+  color: var(--accent);
+  line-height: 1;
+  margin-bottom: 16px;
+  text-shadow: var(--glow-mint);
 }
 
 .tagline {
   font-size: 18px;
-  opacity: 0.9;
+  font-weight: 400;
+  color: var(--text-2);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-bottom: 48px;
 }
 
-/* Right Side */
-.login-right {
-  flex: 1;
-  background-color: #f5f7fb;
+/* Decorative divider */
+.login-divider {
+  width: 48px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--primary), transparent);
+  margin: 0 auto 48px;
+  border-radius: var(--r-full);
+}
+
+/* Feature pills */
+.login-features {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  gap: 14px;
   align-items: center;
 }
 
+.feature-pill {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--accent-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--r-full);
+  padding: 10px 20px;
+  font-size: 15px;
+  color: var(--text-2);
+  letter-spacing: 0.3px;
+}
+
+.feature-pill-icon {
+  font-size: 16px;
+}
+
+/* ── Right panel ── */
+.login-right {
+  flex: 0.9;
+  background: var(--bg);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px 32px;
+  position: relative;
+}
+
+/* ── Login card ── */
 .login-card {
-  background: #ffffff;
-  padding: 40px;
-  width: 350px;
-  border-radius: 12px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 380px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  padding: 44px 40px;
+  box-shadow: var(--shadow-lg);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Card top glow accent */
+.login-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--primary), transparent);
+}
+
+.login-card-logo {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 3px;
+  color: var(--accent);
+  text-align: center;
+  margin-bottom: 28px;
 }
 
 .login-card h2 {
-  margin-bottom: 8px;
-  color: #283a8c;
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--text-1);
+  letter-spacing: -0.3px;
+  margin-bottom: 6px;
+  text-align: center;
 }
 
 .subtitle {
-  font-size: 14px;
-  color: #777;
-  margin-bottom: 25px;
+  font-size: 15px;
+  color: var(--text-3);
+  text-align: center;
+  margin-bottom: 32px;
+  letter-spacing: 0.2px;
 }
 
+/* ── Form rows ── */
 .form-row {
   display: flex;
   flex-direction: column;
@@ -77,38 +288,211 @@
 }
 
 .form-row label {
-  font-size: 14px;
-  margin-bottom: 6px;
-  color: #333;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-bottom: 8px;
 }
 
 .form-row input {
-  padding: 10px;
-  border-radius: 6px;
-  border: 1px solid #ccc;
+  padding: 12px 14px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  color: var(--text-1);
+  font-family: var(--font-body);
+  font-size: 16px;
   outline: none;
-  transition: border 0.3s;
+  transition: border-color 0.18s, box-shadow 0.18s;
+}
+
+.form-row input::placeholder {
+  color: var(--text-3);
 }
 
 .form-row input:focus {
-  border-color: #283a8c;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-glow);
 }
 
-/* Button */
+/* ── Role selector ── */
+.role-selector {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.role-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 8px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  color: var(--text-3);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.18s;
+}
+
+.role-btn:hover {
+  background: var(--accent-soft);
+  color: var(--text-2);
+  border-color: var(--border-bright);
+}
+
+.role-btn.selected {
+  background: var(--accent-mid);
+  border-color: var(--border-bright);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.role-btn-icon {
+  font-size: 20px;
+}
+
+.role-label {
+  font-size: 13px;
+  letter-spacing: 0.3px;
+}
+
+/* ── Login button ── */
 .login-btn {
   width: 100%;
-  padding: 12px;
-  background: linear-gradient(135deg, #283a8c, #4a5fd1);
-  color: #fff;
+  padding: 13px;
+  background: var(--primary);
+  color: var(--text-inv);
   border: none;
-  border-radius: 6px;
+  border-radius: var(--r-md);
+  font-family: var(--font-display);
   font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
   cursor: pointer;
-  margin-top: 10px;
-  transition: transform 0.2s, box-shadow 0.2s;
+  margin-top: 8px;
+  transition: all 0.18s ease;
+  box-shadow: var(--glow-teal);
 }
 
 .login-btn:hover {
+  background: var(--accent);
   transform: translateY(-2px);
-  box-shadow: 0 6px 15px rgba(40, 58, 140, 0.3);
+  box-shadow: 0 0 36px rgba(10, 173, 173, 0.4);
 }
+
+.login-btn:active {
+  transform: translateY(0);
+}
+
+/* ── Error message ── */
+.login-error {
+  color: #F05454;
+  font-size: 14px;
+  text-align: center;
+  margin-top: 14px;
+  padding: 10px 14px;
+  background: rgba(240, 84, 84, 0.10);
+  border: 1px solid rgba(240, 84, 84, 0.22);
+  border-radius: var(--r-md);
+}
+
+/* ── Theme toggle switch ── */
+.theme-switch-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 20px;
+  justify-content: center;
+}
+
+.theme-switch-wrapper span {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-3);
+  letter-spacing: 0.3px;
+  min-width: 72px;
+}
+
+/* Hide the native checkbox */
+.theme-switch input {
+  display: none;
+}
+
+/* The pill track */
+.theme-switch {
+  position: relative;
+  display: inline-block;
+  cursor: pointer;
+}
+
+.slider {
+  width: 56px;
+  height: 28px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-bright);
+  border-radius: var(--r-full);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 6px;
+  position: relative;
+  transition: background 0.3s ease, border-color 0.3s ease;
+}
+
+/* Sliding thumb */
+.slider::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  background: var(--primary);
+  border-radius: 50%;
+  box-shadow: var(--glow-teal);
+  transition: transform 0.3s cubic-bezier(.34, 1.56, .64, 1);
+}
+
+/* Move thumb to the right when checked (dark mode) */
+.theme-switch input:checked + .slider::after {
+  transform: translateX(28px);
+}
+
+/* Track colour when active */
+.theme-switch input:checked + .slider {
+  background: var(--accent-mid);
+  border-color: var(--border-bright);
+}
+
+/* Sun & Moon SVG icons inside the track */
+.slider .sun,
+.slider .moon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  transition: opacity 0.25s, color 0.25s;
+  position: relative;
+  z-index: 1;           /* sit above the ::after thumb */
+}
+
+.slider .sun {
+  color: var(--warning);
+  opacity: 1;
+}
+
+.slider .moon {
+  color: var(--accent);
+  opacity: 0.4;
+}
+
+/* When dark-mode is checked, dim sun and brighten moon */
+.theme-switch input:checked + .slider .sun  { opacity: 0.4; }
+.theme-switch input:checked + .slider .moon { opacity: 1;   }

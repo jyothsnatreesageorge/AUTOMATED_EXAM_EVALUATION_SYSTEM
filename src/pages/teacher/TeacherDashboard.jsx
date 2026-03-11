@@ -1,26 +1,26 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import "./AdminDashboard.css";
+import "../admin/AdminDashboard.css";
 
 const NAV_ITEMS = [
-  { label: "Dashboard", icon: "⊞", path: "/admin", active: true },
-  { label: "Profile", icon: "👤", path: "/profile" }
+  { label: "Dashboard", icon: "⊞", path: "/teacher", active: true },
+  { label: "Profile", icon: "👤", path: "/profile" },
+  {label:"My Classes",icon:"🏫",path:"/courseclass"}
 ];
 
 const FEATURE_CARDS = [
-  { label: "Teacher Management", icon: "🎓", sub: "Manage faculty records", path: "/admin/teachers" },
-  { label: "Student Management", icon: "👥", sub: "Enrol & update students", path: "/admin/students" },
-  { label: "Add Course", icon: "📚", sub: "Create new courses", path: "/admin/add-course" },
-  { label: "Add Class", icon: "🏫", sub: "Define class sections", path: "/admin/add-class" },
-  { label: "Course Mapping", icon: "🔗", sub: "Assign courses to classes", path: "/admin/course-mapping" },
+  { label: "Evaluation", icon: "📋", sub: "Manage & score exams", path: "/evaluation" },
+  { label: "View Results", icon: "📊", sub: "Browse mark matrices", path: "/view-mark" },
+{ label: "Reference Answer", icon: "📖", sub: "Approve model answers", path: "/reference-answer" },
+  { label: "Revaluation", icon: "🔄", sub: "Handle student requests", path: "/revaluation" },
+  {label:"My Classes",icon:"🏫",sub:"View class and courses",path:"/courseclass"},
 ];
 
-const AdminDashboard = () => {
+const TeacherDashboard = () => {
 
   const navigate = useNavigate();
 
-  // 🔹 Get logged in admin
-  const admin = JSON.parse(localStorage.getItem("user"));
+  const teacher = JSON.parse(localStorage.getItem("user"));
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -37,11 +37,11 @@ const AdminDashboard = () => {
         <h2 className="logo">SAGE</h2>
 
         <div className="user-info">
-          <div className="avatar">{admin?.name?.charAt(0)}</div>
+          <div className="avatar">{teacher?.name?.charAt(0)}</div>
 
           <div className="user-details">
-            <h4>{admin?.name}</h4>
-            <p>System Administrator</p>
+            <h4>{teacher?.name}</h4>
+            <p>Teacher</p>
           </div>
         </div>
 
@@ -68,7 +68,7 @@ const AdminDashboard = () => {
         </div>
 
         <h1 className="page-title">
-          Admin <span>Dashboard</span>
+          Teacher <span>Dashboard</span>
         </h1>
 
         <div className="card-grid">
@@ -86,4 +86,4 @@ const AdminDashboard = () => {
   );
 };
 
-export default AdminDashboard;
+export default TeacherDashboard;

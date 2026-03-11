@@ -1,142 +1,375 @@
-import React, { useState } from "react";
-import { Link } from "react-router-dom"; // <-- Import Link
-import "./AdminDashboard.css"; // <-- Reuse AdminDashboard styles
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
+import "./AdminDashboard.css";
+
+const NAV_ITEMS = [
+  { label: "Dashboard", icon: "⊞", path: "/admin" },
+  { label: "Teacher Management", icon: "🎓", path: "/admin/teachers", active: true },
+  { label: "Student Management", icon: "👥", path: "/admin/students" },
+  { label: "Manage Course", icon: "📚", path: "/admin/add-course" },
+  { label: "Manage Class", icon: "🏫", path: "/admin/add-class" },
+  { label: "Course Mapping", icon: "🔗", path: "/admin/course-mapping" },
+];
 
 const TeacherManagement = () => {
-  const admin = {
-    name: "Admin1",
-    role: "System Administrator",
+
+  const admin = { name: "Admin1", role: "System Administrator" };
+  const navigate = useNavigate();
+
+  const [teachers, setTeachers] = useState([]);
+  const [search, setSearch] = useState("");
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [deleteId, setDeleteId] = useState(null);
+
+  const [newName, setNewName] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [newPhone, setNewPhone] = useState("");
+
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const API = "http://localhost:5000/api/teachers";
+
+  useEffect(() => {
+    fetchTeachers();
+  }, []);
+
+  const fetchTeachers = async () => {
+    try {
+      const res = await axios.get(API);
+      setTeachers(res.data);
+    } catch (err) {
+      console.error("Error fetching teachers", err);
+    }
   };
 
-  const [activeAction, setActiveAction] = useState(null);
-  const [selectedField, setSelectedField] = useState("");
+  const filtered = teachers.filter((t) => {
+  const searchText = search.toLowerCase();
+  return (
+    (t.id || "").toLowerCase().includes(searchText) ||
+    (t.name || "").toLowerCase().includes(searchText) ||
+    (t.email || "").toLowerCase().includes(searchText) ||
+    (t.phone || "").includes(searchText)
+  );
+});
+  const handleAdd = async () => {
+
+    if (!newName || !newEmail || !newPhone ) {
+      alert("Please fill all fields ❌");
+      return;
+    }
+
+    try {
+
+      await axios.post(API, {
+        name: newName,
+        email: newEmail,
+        phone: newPhone
+      });
+
+      fetchTeachers();
+
+      setNewName("");
+      setNewEmail("");
+      setNewPhone("");
+
+      setShowAddForm(false);
+
+    } catch (err) {
+      console.error("Add teacher error", err);
+    }
+  };
+
+  const handleEditOpen = (teacher) => {
+
+    setEditingId(teacher.id);
+
+    setEditName(teacher.name);
+    setEditEmail(teacher.email);
+    setEditPhone(teacher.phone);
+  };
+
+  const handleEditSave = async (id) => {
+
+    try {
+
+      await axios.put(`${API}/${id}`, {
+        name: editName,
+        email: editEmail,
+        phone: editPhone
+      });
+
+      fetchTeachers();
+      setEditingId(null);
+
+    } catch (err) {
+      console.error("Update error", err);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+
+    try {
+
+      await axios.delete(`${API}/${deleteId}`);
+
+      fetchTeachers();
+      setDeleteId(null);
+
+    } catch (err) {
+      console.error("Delete error", err);
+    }
+  };
 
   return (
     <div className="container">
-      {/* Sidebar */}
+
       <aside className="sidebar">
         <h2 className="logo">SAGE</h2>
 
         <div className="user-info">
-          <div className="avatar">A</div>
+          <div className="avatar">{admin.name.charAt(0)}</div>
+
           <div className="user-details">
             <h4>{admin.name}</h4>
             <p>{admin.role}</p>
           </div>
         </div>
 
-        {/* Sidebar links */}
-        <div className="sidebar-cards">
-          <Link to="/" className="sidebar-card">
-            Dashboard
-          </Link>
-          <Link to="/admin/students" className="sidebar-card">
-            Student Management
-          </Link>
-          <Link to="/admin/add-course" className="sidebar-card">
-            Add Course
-          </Link>
-          <Link to="/admin/add-class" className="sidebar-card">
-            Add Class
-          </Link>
-          <Link to="/admin/course-mapping" className="sidebar-card">
-            Course Mapping
-          </Link>
-        </div>
+        <ul className="sidebar-cards">
+          {NAV_ITEMS.map(({ label, icon, path, active }) => (
+            <li
+              key={label}
+              className={active ? "active" : ""}
+              onClick={() => navigate(path)}
+            >
+              <span className="nav-icon">{icon}</span>
+              {label}
+            </li>
+          ))}
+        </ul>
       </aside>
 
-      {/* Main Content */}
       <main className="main">
-        {/* Logout */}
+
         <div className="logout-container">
-          <button className="logout-btn-top">Logout</button>
+          <button
+            className="com-btn logout-btn-top"
+            onClick={() => navigate("/login")}
+          >
+            ↩ Logout
+          </button>
         </div>
 
-        <h1 className="page-title">Teacher Management</h1>
+        <h1 className="page-title">
+          Teacher <span>Management</span>
+        </h1>
 
-        <div className="card-grid">
-          {/* ADD TEACHER CARD */}
-          <div className="dash-card-wrapper">
-            <div
-              className={`dash-card ${activeAction === "add" ? "active" : ""}`}
-              onClick={() => setActiveAction("add")}
-            >
-              <h3>Add Teacher</h3>
+        <div className="tm-stats-row">
+          <div className="sm-stat-card">
+            <span className="sm-stat-icon">🎓</span>
+            <div>
+              <p className="sm-stat-value">{teachers.length}</p>
+              <p className="sm-stat-label">Total Teachers</p>
             </div>
-
-            {activeAction === "add" && (
-              <div className="form-card">
-                <h3>Add Teacher</h3>
-                <input placeholder="ID" />
-                <input placeholder="Name" />
-                <input placeholder="Email ID" />
-                <input placeholder="Phone Number" />
-                <button className="primary-btn">Add Teacher</button>
-              </div>
-            )}
           </div>
 
-          {/* UPDATE TEACHER CARD */}
-          <div className="dash-card-wrapper">
-            <div
-              className={`dash-card ${activeAction === "update" ? "active" : ""}`}
-              onClick={() => setActiveAction("update")}
-            >
-              <h3>Update Teacher</h3>
+          <div className="sm-stat-card">
+            <span className="sm-stat-icon">🔍</span>
+            <div>
+              <p className="sm-stat-value">{filtered.length}</p>
+              <p className="sm-stat-label">Showing</p>
             </div>
-
-            {activeAction === "update" && (
-              <div className="form-card">
-                <h3>Update Teacher</h3>
-
-                <input placeholder="Enter Teacher ID" />
-
-                <select
-                  value={selectedField}
-                  onChange={(e) => setSelectedField(e.target.value)}
-                >
-                  <option value="">Select Field to Update</option>
-                  <option value="name">Name</option>
-                  <option value="email">Email</option>
-                  <option value="phone">Phone Number</option>
-                </select>
-
-                {selectedField && (
-                  <input placeholder={`Enter new ${selectedField}`} />
-                )}
-
-                <button className="primary-btn">Update</button>
-              </div>
-            )}
-          </div>
-
-          {/* DELETE TEACHER CARD */}
-          <div className="dash-card-wrapper">
-            <div
-              className={`dash-card danger-card ${activeAction === "delete" ? "active" : ""}`}
-              onClick={() => setActiveAction("delete")}
-            >
-              <h3>Delete Teacher</h3>
-            </div>
-
-            {activeAction === "delete" && (
-              <div className="form-card danger">
-                <h3>Delete Teacher</h3>
-
-                <input placeholder="Enter Teacher ID" />
-
-                <p className="warning-text">
-                  Are you sure you want to delete this teacher? This action cannot be undone.
-                </p>
-
-                <button className="danger-btn">Confirm Delete</button>
-              </div>
-            )}
           </div>
         </div>
+
+        <div className="tm-toolbar">
+
+          <div className="tm-search-wrap">
+            <span className="tm-search-icon">🔍</span>
+
+          <input
+            className="tm-search"
+            placeholder="Search by name, email, or ID…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          </div>
+
+          <button
+            className="com-btn primary-btn tm-add-btn"
+            onClick={() => setShowAddForm((p) => !p)}
+          >
+            {showAddForm ? "✕ Cancel" : "+ Add Teacher"}
+          </button>
+        </div>
+
+        {showAddForm && (
+
+          <div className="com-card form-card tm-add-form">
+
+            <h3>Add New Teacher</h3>
+
+            <div className="tm-form-grid">
+
+              <input
+                placeholder="Full Name"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+              />
+
+              <input
+                placeholder="Email Address"
+                value={newEmail}
+                type="email"
+                onChange={(e) => setNewEmail(e.target.value)}
+              />
+
+              <input
+                placeholder="Phone Number"
+                value={newPhone}
+                type="tel"
+                onChange={(e) => setNewPhone(e.target.value)}
+              />
+
+            </div>
+
+            <button className="com-btn primary-btn" onClick={handleAdd}>
+              + Add Teacher
+            </button>
+
+          </div>
+        )}
+
+        <div className="com-card tm-table-card">
+
+          <table className="tm-table">
+
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Phone</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+
+            <tbody>
+
+              {filtered.map((teacher) =>
+                editingId === teacher.id ? (
+
+                  <tr key={teacher.id}>
+
+                    <td>{teacher.id}</td>
+
+                    <td>
+                      <input value={editName}
+                        onChange={(e) => setEditName(e.target.value)} />
+                    </td>
+
+                    <td>
+                      <input value={editEmail}
+                        onChange={(e) => setEditEmail(e.target.value)} />
+                    </td>
+
+                    <td>
+                      <input value={editPhone}
+                        onChange={(e) => setEditPhone(e.target.value)} />
+                    </td>
+
+                    <td>
+
+                      <button
+                        className="tm-btn tm-save-btn"
+                        onClick={() => handleEditSave(teacher.id)}
+                      >
+                        💾 Save
+                      </button>
+
+                      <button
+                        className="tm-btn tm-cancel-btn"
+                        onClick={() => setEditingId(null)}
+                      >
+                        ✕
+                      </button>
+
+                    </td>
+
+                  </tr>
+
+                ) : (
+
+                  <tr key={teacher.id}>
+
+                    <td>{teacher.id}</td>
+                    <td>{teacher.name}</td>
+                    <td>{teacher.email}</td>
+                    <td>{teacher.phone}</td>
+
+                    <td>
+
+                      <button
+                        className="tm-btn tm-edit-btn"
+                        onClick={() => handleEditOpen(teacher)}
+                      >
+                        ✏️ Edit
+                      </button>
+
+                      <button
+                        className="tm-btn tm-delete-btn"
+                        onClick={() => setDeleteId(teacher.id)}
+                      >
+                        🗑️ Delete
+                      </button>
+
+                    </td>
+
+                  </tr>
+
+                )
+              )}
+
+            </tbody>
+
+          </table>
+        </div>
+
       </main>
+
+      {deleteId && (
+
+        <div className="eval-overlay">
+
+          <div className="tm-confirm-modal">
+
+            <h3>Delete Teacher?</h3>
+
+            <p>This action cannot be undone.</p>
+
+            <button
+              className="com-btn"
+              onClick={() => setDeleteId(null)}
+            >
+              Cancel
+            </button>
+
+            <button
+              className="com-btn danger-btn"
+              onClick={handleDeleteConfirm}
+            >
+              Confirm Delete
+            </button>
+
+          </div>
+
+        </div>
+      )}
+
     </div>
   );
 };
-
 export default TeacherManagement;
