@@ -13,6 +13,7 @@ const NAV_ITEMS = [
 ];
 
 const TABS = ["Classes & Students", "Courses", "Exams"];
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
 const TeacherClasses = () => {
   const teacher = JSON.parse(localStorage.getItem("user"));
