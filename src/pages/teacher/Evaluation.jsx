@@ -17,7 +17,7 @@ const EXAM_TYPES = [
   "Retest Series 1",
   "Retest Series 2",
 ];
-
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
 const EVALUATION_TYPES = ["Liberal", "Average", "Strict"];
 
 const Evaluation = () => {
@@ -60,7 +60,7 @@ const Evaluation = () => {
     const fetchTeacherExams = async () => {
       try {
         const res = await fetch(
-          `http://localhost:5000/api/exams/teacher/${teacher._id}`
+          `${API_BASE}/api/exams/teacher/${teacher._id}`
         );
         if (!res.ok) throw new Error(`Failed to fetch exams: ${res.status}`);
         const data = await res.json();
@@ -79,7 +79,7 @@ const Evaluation = () => {
     const fetchOptions = async () => {
       try {
         const res = await fetch(
-          `http://localhost:5000/api/exams/teacher/${teacher._id}/options`
+          `${API_BASE}/api/exams/teacher/${teacher._id}/options`
         );
         if (!res.ok) throw new Error(`Failed to fetch options: ${res.status}`);
         const data = await res.json();
@@ -120,7 +120,7 @@ const Evaluation = () => {
     if (!newClass || !newCourse || !newType || !newEvalType) return;
 
     try {
-      const res = await fetch("http://localhost:5000/api/exams", {
+      const res = await fetch("${API_BASE}/api/exams", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -148,7 +148,7 @@ const Evaluation = () => {
 
   const handleDeleteExam = async (exam) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/exams/${exam._id}`, {
+      const res = await fetch(`${API_BASE}/api/exams/${exam._id}`, {
         method: "DELETE",
       });
       if (!res.ok) throw new Error();
@@ -170,7 +170,7 @@ const Evaluation = () => {
     };
 
     try {
-      const res = await fetch(`http://localhost:5000/api/exams/${exam._id}`, {
+      const res = await fetch(`${API_BASE}/api/exams/${exam._id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updates),
