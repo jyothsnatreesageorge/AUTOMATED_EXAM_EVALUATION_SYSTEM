@@ -16,7 +16,7 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
     if (!teacher?._id) return;
 
-    fetch(`http://localhost:5000/api/teachers/revaluation/${teacher._id}`)
+    fetch(`${API_BASE}/revaluation/${teacher._id}`)
       .then(res => res.json())
       .then(data => setRequests(data))
       .catch(err => console.error(err));
