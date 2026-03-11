@@ -236,7 +236,7 @@ const Evaluation = () => {
             className="com-btn logout-btn-top"
             onClick={() => navigate("/login")}
           >
-            ↩ Logout
+            ↩ Back
           </button>
         </div>
 
