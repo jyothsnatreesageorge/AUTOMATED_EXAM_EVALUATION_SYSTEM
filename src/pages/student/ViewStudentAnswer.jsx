@@ -60,7 +60,7 @@ const ViewAnswerKey = () => {
       console.log("ClassId:", user.classId);
 
       const res = await axios.get(
-        `${API_BASE}/api/reference/student/${encodeURIComponent(
+        `${API_BASE}/api/reference/student/${encodeURIComponent`(
           course
         )}/${encodeURIComponent(exam)}/${encodeURIComponent(user.classId)}`
       );
