@@ -10,7 +10,7 @@ const NAV_ITEMS = [
   { label: "Revaluation", icon: "🔄", path: "/revaluation" },
   {label:"My Classes",icon:"🏫",path:"/courseclass"},
 ];
-
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
 const ReferenceAnswer = () => {
   const navigate = useNavigate();
 
