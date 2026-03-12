@@ -194,13 +194,14 @@ router.post("/result", async (req, res) => {
 
     const storedTotal = parseFloat(dataCells[dataCells.length - 1]);
 
-    res.json({
-      result: {
-        ...result.toObject(),
-        questions,
-        storedTotal: !isNaN(storedTotal) ? storedTotal : null,
-      },
-    });
+res.json({
+  result: {
+    ...result.toObject(),
+    questions,
+    storedTotal: !isNaN(storedTotal) ? storedTotal : null,
+    maxMarks: result.maxMarks   // fetch from DB
+  },
+});
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });
