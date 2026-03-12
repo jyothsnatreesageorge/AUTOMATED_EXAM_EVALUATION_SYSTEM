@@ -9,30 +9,28 @@ const Revaluation = () => {
   const [requests, setRequests] = useState([]);
   const [pendingCount, setPendingCount] = useState(0);
   const [selectedReq, setSelectedReq] = useState(null);
-const [newMark, setNewMark] = useState("");
-const API_BASE = import.meta.env.VITE_API_BASE_URL;
-  // Load pending revaluation requests
-  useEffect(() => {
+  const [newMark, setNewMark] = useState("");
 
+  const API_BASE = import.meta.env.VITE_API_BASE_URL;
+
+  /* Load pending revaluation requests */
+  useEffect(() => {
     if (!teacher?._id) return;
 
     fetch(`${API_BASE}/revaluation/${teacher._id}`)
-      .then(res => res.json())
-      .then(data => setRequests(data))
-      .catch(err => console.error(err));
-
+      .then((res) => res.json())
+      .then((data) => setRequests(data))
+      .catch((err) => console.error(err));
   }, [teacher?._id]);
 
-  // Notification badge
+  /* Notification badge */
   useEffect(() => {
-
     if (!teacher?._id) return;
 
     fetch(`${API_BASE}/api/teachers/revaluation-count/${teacher._id}`)
-      .then(res => res.json())
-      .then(data => setPendingCount(data.count))
-      .catch(err => console.error(err));
-
+      .then((res) => res.json())
+      .then((data) => setPendingCount(data.count))
+      .catch((err) => console.error(err));
   }, [teacher?._id]);
 
   const handleUpdateMark = (req) => {
@@ -40,27 +38,25 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL;
   };
 
   const submitMark = async (id) => {
+    await fetch(`${API_BASE}/api/teachers/revaluation/${id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        newMarks: newMark,
+      }),
+    });
 
-  await fetch(`${API_BASE}/api/teachers/revaluation/${id}`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      newMarks: newMark
-    })
-  });
+    /* remove updated request from UI */
+    setRequests((prev) => prev.filter((r) => r._id !== id));
 
-  // remove updated request from UI
-  setRequests(prev => prev.filter(r => r._id !== id));
+    /* decrease pending count */
+    setPendingCount((prev) => prev - 1);
 
-  // decrease pending count
-  setPendingCount(prev => prev - 1);
-
-  setSelectedReq(null);
-  setNewMark("");
-
-};
+    setSelectedReq(null);
+    setNewMark("");
+  };
 
   const NAV_ITEMS = [
     { label: "Dashboard", icon: "⊞", path: "/teacher" },
@@ -78,55 +74,57 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
   return (
     <div className="container">
-
       {/* Sidebar */}
       <aside className="sidebar">
         <h2 className="logo">SAGE</h2>
 
         <div className="user-info">
           <div className="avatar">T</div>
+
           <div className="user-details">
             <h4>{teacher?.name}</h4>
             <p>Teacher</p>
           </div>
         </div>
 
-       <ul className="sidebar-cards">
-  {NAV_ITEMS.map(({ label, icon, path, active, badge }) => (
-    <li
-      key={label}
-      className={active ? "active" : ""}
-      onClick={() => navigate(path)}
-      style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
-    >
-      <span>
-        <span className="nav-icon">{icon}</span>
-        {label}
-      </span>
+        <ul className="sidebar-cards">
+          {NAV_ITEMS.map(({ label, icon, path, active, badge }) => (
+            <li
+              key={label}
+              className={active ? "active" : ""}
+              onClick={() => navigate(path)}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <span>
+                <span className="nav-icon">{icon}</span>
+                {label}
+              </span>
 
-      {badge > 0 && (
-        <span
-          style={{
-            background: "#ff4d4f",
-            color: "white",
-            borderRadius: "12px",
-            padding: "2px 8px",
-            fontSize: "12px",
-            fontWeight: "bold"
-          }}
-        >
-          {badge}
-        </span>
-      )}
-
-    </li>
-  ))}
-</ul>
+              {badge > 0 && (
+                <span
+                  style={{
+                    background: "#ff4d4f",
+                    color: "white",
+                    borderRadius: "12px",
+                    padding: "2px 8px",
+                    fontSize: "12px",
+                    fontWeight: "bold",
+                  }}
+                >
+                  {badge}
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
       </aside>
 
       {/* Main */}
       <main className="main">
-
         <div className="logout-container">
           <button
             className="com-btn logout-btn-top"
@@ -141,17 +139,21 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL;
         </h1>
 
         {requests.length === 0 ? (
-
-          <div className="com-card" style={{ textAlign: "center", padding: "60px 24px" }}>
+          <div
+            className="com-card"
+            style={{ textAlign: "center", padding: "60px 24px" }}
+          >
             <p style={{ fontSize: "32px", marginBottom: "12px" }}>✅</p>
 
-            <p style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "18px",
-              fontWeight: 700,
-              color: "var(--text-1)",
-              marginBottom: "6px",
-            }}>
+            <p
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: "18px",
+                fontWeight: 700,
+                color: "var(--text-1)",
+                marginBottom: "6px",
+              }}
+            >
               All caught up!
             </p>
 
@@ -159,128 +161,109 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL;
               No pending revaluation requests.
             </p>
           </div>
-
         ) : (
-
-          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "16px",
+            }}
+          >
             {requests.map((req) => (
-
               <div className="com-card revaluation-card" key={req._id}>
-
                 <div className="revaluation-header">
-
                   <div>
-                    <p style={{
-                      fontFamily: "var(--font-display)",
-                      fontSize: "18px",
-                      fontWeight: 700,
-                      color: "var(--text-1)",
-                      marginBottom: "2px",
-                    }}>
+                    <p
+                      style={{
+                        fontFamily: "var(--font-display)",
+                        fontSize: "18px",
+                        fontWeight: 700,
+                        color: "var(--text-1)",
+                        marginBottom: "2px",
+                      }}
+                    >
                       {req.studentName}
                     </p>
 
-                    <p style={{
-                      fontSize: "14px",
-                      color: "var(--text-3)",
-                      letterSpacing: "0.5px"
-                    }}>
+                    <p
+                      style={{
+                        fontSize: "14px",
+                        color: "var(--text-3)",
+                        letterSpacing: "0.5px",
+                      }}
+                    >
                       Roll No: {req.rollNo}
                     </p>
                   </div>
 
                   <div style={{ textAlign: "right" }}>
-                    <span style={{
-                      display: "inline-block",
-                      background: "var(--accent-mid)",
-                      color: "var(--accent)",
-                      border: "1px solid var(--border-bright)",
-                      borderRadius: "var(--r-full)",
-                      padding: "4px 12px",
-                      fontSize: "14px",
-                      fontWeight: 600,
-                    }}>
+                    <span
+                      style={{
+                        display: "inline-block",
+                        background: "var(--accent-mid)",
+                        color: "var(--accent)",
+                        border: "1px solid var(--border-bright)",
+                        borderRadius: "var(--r-full)",
+                        padding: "4px 12px",
+                        fontSize: "14px",
+                        fontWeight: 600,
+                      }}
+                    >
                       {req.classId} · {req.examType}
                     </span>
                   </div>
-
                 </div>
 
-<div className="revaluation-content-box">
+                <div className="revaluation-content-box">
+                  <p style={{ marginBottom: "14px" }}>
+                    Revaluation request for{" "}
+                    <strong style={{ color: "var(--text-1)" }}>
+                      {req.examType}
+                    </strong>{" "}
+                    in{" "}
+                    <strong style={{ color: "var(--text-1)" }}>
+                      {req.course}
+                    </strong>
+                    , class{" "}
+                    <strong style={{ color: "var(--text-1)" }}>
+                      {req.classId}
+                    </strong>
+                    .
+                  </p>
 
-  <p style={{ marginBottom: "14px" }}>
-    Revaluation request for{" "}
-    <strong style={{ color: "var(--text-1)" }}>
-      {req.examType}
-    </strong>{" "}
-    in{" "}
-    <strong style={{ color: "var(--text-1)" }}>
-      {req.course}
-    </strong>, class{" "}
-    <strong style={{ color: "var(--text-1)" }}>
-      {req.classId}
-    </strong>.
-  </p>
+                  <button
+                    className="com-btn revalued-btn"
+                    onClick={() => setSelectedReq(req)}
+                  >
+                    ✏️ Update Mark
+                  </button>
 
-  {/* STUDENT REASON */}
-  {req.studentReason && (
-    <div
-      style={{
-        background: "#f5f7fa",
-        border: "1px solid #e5e7eb",
-        padding: "10px",
-        borderRadius: "6px",
-        marginBottom: "12px",
-      }}
-    >
-      <strong>Student Reason:</strong>
-      <p style={{ margin: "5px 0 0 0" }}>{req.studentReason}</p>
-    </div>
-  )}
+                  {selectedReq?._id === req._id && (
+                    <div style={{ marginTop: "10px" }}>
+                      <input
+                        type="number"
+                        placeholder="Enter new total mark"
+                        value={newMark}
+                        onChange={(e) => setNewMark(e.target.value)}
+                        style={{
+                          padding: "6px",
+                          marginRight: "10px",
+                        }}
+                      />
 
-  <button
-    className="com-btn revalued-btn"
-    onClick={() => setSelectedReq(req)}
-  >
-    ✏️ Update Mark
-  </button>
-
-{selectedReq?._id === req._id && (
-
-  <div style={{ marginTop: "10px" }}>
-
-    <input
-      type="number"
-      placeholder="Enter new total mark"
-      value={newMark}
-      onChange={(e) => setNewMark(e.target.value)}
-      style={{
-        padding: "6px",
-        marginRight: "10px"
-      }}
-    />
-
-    <button
-      className="com-btn"
-      onClick={() => submitMark(req._id)}
-    >
-      Submit
-    </button>
-
-  </div>
-
-)}
-
+                      <button
+                        className="com-btn"
+                        onClick={() => submitMark(req._id)}
+                      >
+                        Submit
+                      </button>
+                    </div>
+                  )}
                 </div>
-
               </div>
-
             ))}
-
           </div>
         )}
-
       </main>
     </div>
   );
