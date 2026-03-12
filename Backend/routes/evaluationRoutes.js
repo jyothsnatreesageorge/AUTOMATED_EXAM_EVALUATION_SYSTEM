@@ -205,30 +205,28 @@ Do not write anything after the table.
  */
 router.post("/run", async (req, res) => {
   try {
-    console.log("Evaluation req.body:", req.body);
-
     const { classId, course, examType, evalType, force } = req.body || {};
 
     if (!classId || !course || !examType || !evalType) {
-      return res.status(400).json({
-        error: "classId, course, examType, evalType are required",
-      });
+      return res.status(400).json({ error: "classId, course, examType evalType are required" });
     }
 
     const BUCKET = process.env.S3_BUCKET;
-    if (!BUCKET) {
-      return res.status(500).json({
-        error: "Missing S3_BUCKET in Backend .env",
-      });
-    }
+    if (!BUCKET) return res.status(500).json({ error: "Missing S3_BUCKET in Backend .env" });
+    if (!process.env.GEMINI_API_KEY) return res.status(500).json({ error: "Missing GEMINI_API_KEY in Backend .env" });
 
-    if (!process.env.GEMINI_API_KEY) {
-      return res.status(500).json({
-        error: "Missing GEMINI_API_KEY in Backend .env",
-      });
-    }
+    const basePrefix = `${course}/${classId}/${examType}`;
+    const qpPrefix = `${basePrefix}/question-paper/`;
+    const msPrefix = `${basePrefix}/marking-scheme/`;
+    const refPrefix = `${basePrefix}/reference-text/`;
+    const scriptsPrefix = `${basePrefix}/answer-scripts/`;
 
-    // rest of your code...
+    const [qpPdfs, msPdfs, refPdfs, scriptPdfs] = await Promise.all([
+      listPdfsS3(BUCKET, qpPrefix),
+      listPdfsS3(BUCKET, msPrefix),
+      listPdfsS3(BUCKET, refPrefix),
+      listPdfsS3(BUCKET, scriptsPrefix),
+    ]);
 
     if (!qpPdfs.length) {
       return res.status(400).json({ error: `No Question Paper PDFs found at prefix: ${qpPrefix}` });
