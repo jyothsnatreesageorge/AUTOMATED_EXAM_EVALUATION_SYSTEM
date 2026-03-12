@@ -144,18 +144,19 @@ const UploadScripts = () => {
     console.log("Upload success:", uploadData);
 
     // ---------- Evaluate ----------
-    const evalRes = await fetch(`${API_BASE}/api/evaluation/run`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        classId: exam.classId,
-        course: exam.course,
-        examType: exam.examType,
-        force: false,
-      }),
-    });
+   const evalRes = await fetch(`${API_BASE}/api/evaluation/run`, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    classId: exam.classId,
+    course: exam.course,
+    examType: exam.examType,
+    evalType: exam.evalType,
+    force: false,
+  }),
+});
 
     const evalText = await evalRes.text();
     console.log("Evaluation raw response:", evalText);
