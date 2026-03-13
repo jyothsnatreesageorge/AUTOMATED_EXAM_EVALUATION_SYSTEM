@@ -15,7 +15,6 @@ const FEATURE_CARDS = [
   { label: "Revaluation", icon: "🔄", sub: "Handle student requests", path: "/revaluation" },
   {label:"My Classes",icon:"🏫",sub:"View class and courses",path:"/courseclass"},
 ];
-const API_BASE = import.meta.env.VITE_API_BASE_URL;
 const TeacherDashboard = () => {
 
   const navigate = useNavigate();
