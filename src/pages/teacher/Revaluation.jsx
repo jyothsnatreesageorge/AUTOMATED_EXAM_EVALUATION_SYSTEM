@@ -17,7 +17,7 @@ const Revaluation = () => {
   useEffect(() => {
     if (!teacher?._id) return;
 
-    fetch(`${API_BASE}/revaluation/${teacher._id}`)
+ fetch(`${API_BASE}/api/teachers/revaluation/${teacher._id}`)
       .then((res) => res.json())
       .then((data) => {
         console.log("Revaluation API response:", data);
