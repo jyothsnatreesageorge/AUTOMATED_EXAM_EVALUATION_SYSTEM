@@ -95,40 +95,30 @@ router.get("/courses/:rollNo", async (req, res) => {
     }
 
     const classDoc = await Class.findOne({ classId: student.classId });
+
     if (!classDoc) {
-      return res.status(404).json({ message: "Class not found" });
+      return res.json({ 
+        debug: "CLASS NOT FOUND",
+        studentClassId: student.classId,
+        courses: []
+      });
     }
 
-    const mappings = await CourseMapping.find({ classId: classDoc._id })
-      .populate("courseId", "courseName");
-
-    console.log("Student rollNo:", student.rollNo);
-    console.log("Student classId string:", student.classId);
-    console.log("Matched Class document:", classDoc);
-    console.log("Mappings count:", mappings.length);
-    console.log("Mappings:", JSON.stringify(mappings, null, 2));
-
-    const courses = mappings
-      .filter((m) => m.courseId && m.courseId.courseName)
-      .map((m) => ({
-        _id: m.courseId._id,
-        courseName: m.courseId.courseName,
-      }));
-  .filter(Boolean);
-    console.log("Courses returned:", courses);
+    const mappings = await CourseMapping
+      .find({ classId: classDoc._id })
+      .populate("courseId");
 
     return res.json({
-      courses,
-      debug: {
-        studentClassId: student.classId,
-        classObjectId: classDoc._id,
-        mappingsFound: mappings.length,
-        validCoursesReturned: courses.length,
-      },
+      debug: "OK",
+      studentClassId: student.classId,
+      classObjectId: classDoc._id,
+      mappingsFound: mappings.length,
+      courses: mappings.map(m => m.courseId).filter(Boolean)
     });
+
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error" });
   }
 });
 
