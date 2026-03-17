@@ -31,7 +31,7 @@ const ViewResult = () => {
     const fetchCourses = async () => {
       try {
         const res = await fetch(
-          `${API_BASE}/api/students/courses/${user.rollNo}`
+          `${API_BASE}/api/students/courses/${user._id}`
         );
 
         const data = await res.json();
@@ -42,8 +42,8 @@ const ViewResult = () => {
       }
     };
 
-    if (user?.rollNo) fetchCourses();
-  }, [user?.rollNo]);
+    if (user?._id) fetchCourses();
+  }, [user?._id]);
 
   /* VIEW RESULT */
   const handleView = async () => {
@@ -138,7 +138,7 @@ const ViewResult = () => {
     0
   );
 
- const maxTotal = result?.maxMarks || 0;
+  const maxTotal = result?.maxMarks || 0;
 
   const pct = maxTotal ? Math.round((Number(total) / maxTotal) * 100) : 0;
 
