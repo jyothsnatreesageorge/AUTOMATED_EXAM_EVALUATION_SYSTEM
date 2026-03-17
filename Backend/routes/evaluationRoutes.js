@@ -246,7 +246,6 @@ router.post("/run", async (req, res) => {
     ]);
     
     // 🔥 NEW: decide scripts based on request
-    let scriptPdfs = [];
     
     // 🔥 STRICT: only evaluate scripts sent from frontend
     if (!scriptKeys || scriptKeys.length === 0) {
