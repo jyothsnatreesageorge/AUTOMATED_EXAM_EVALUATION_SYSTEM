@@ -223,7 +223,7 @@ Do not write anything after the table.
  */
 router.post("/run", async (req, res) => {
   try {
-    const { classId, course, examType, evalType, force } = req.body || {};
+    const { classId, course, examType, evalType, force, scriptKeys } = req.body || {};
 
     if (!classId || !course || !examType || !evalType) {
       return res.status(400).json({ error: "classId, course, examType evalType are required" });
