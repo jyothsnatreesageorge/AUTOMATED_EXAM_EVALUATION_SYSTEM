@@ -13,18 +13,36 @@ import { Buffer } from "buffer";
 
 function extractTotal(resultTable) {
   if (!resultTable) return null;
+
   const lines = resultTable
     .split("\n")
     .map((l) => l.trim())
     .filter((l) => l.startsWith("|"));
-  if (lines.length < 3) return null;
-  const dataRow = lines[2];
-  const cells = dataRow.split("|").map((c) => c.trim()).filter(Boolean);
-  const lastCell = cells[cells.length - 1];
-  const n = Number(String(lastCell).replace(/[^\d.]/g, ""));
+
+  if (lines.length < 2) return null;
+
+  const header = lines[0]
+    .split("|")
+    .map((c) => c.trim());
+
+  const dataRow = lines[2]
+    ?.split("|")
+    .map((c) => c.trim());
+
+  if (!dataRow) return null;
+
+  // 🔍 Find index of "Total"
+  const totalIndex = header.findIndex(h =>
+    h.toLowerCase().includes("total")
+  );
+
+  if (totalIndex === -1) return null;
+
+  const totalCell = dataRow[totalIndex];
+
+  const n = Number(String(totalCell).replace(/[^\d.]/g, ""));
   return Number.isFinite(n) ? n : null;
 }
-
 function guessMime(key) {
   return mime.lookup(key) || "application/octet-stream";
 }
