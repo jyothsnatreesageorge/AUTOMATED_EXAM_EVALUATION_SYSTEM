@@ -141,22 +141,17 @@ const UploadScripts = () => {
       throw new Error(uploadData.error || "Upload failed");
     }
 
-    console.log("Upload success:", uploadData);
-    const scriptKeys = uploadData?.files?.answer_scripts || [];
+ console.log("Upload success:", uploadData);
 
-    console.log("Scripts to evaluate:", scriptKeys);
-    
-    // 🔴 safety check
-    if (!scriptKeys.length) {
-      throw new Error("No answer scripts uploaded properly");
-    }
-    console.log("Sending to evaluation:", {
-      classId: exam.classId,
-      course: exam.course,
-      examType: exam.examType,
-      evalType: exam.evalType,
-      scriptKeys,
-    });
+const scriptKeys = Array.isArray(uploadData?.uploadedFiles)
+  ? uploadData.uploadedFiles
+  : [];
+
+console.log("Scripts to evaluate:", scriptKeys);
+
+if (!scriptKeys.length) {
+  throw new Error("No answer scripts uploaded properly");
+}
     // ---------- Evaluate ----------
    const evalRes = await fetch(`${API_BASE}/api/evaluation/run`, {
   method: "POST",
