@@ -226,16 +226,22 @@ const UploadScripts = () => {
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
         >
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".pdf,image/*"
-            multiple
-            webkitdirectory="true"
-            directory="true"
-            style={{ display: "none" }}
-            onChange={handleFileInput}
-          />
+          <>
+  <input
+    type="file"
+    accept=".pdf,application/pdf"
+    multiple
+    onChange={handlePdfFiles}
+  />
+
+  <input
+    type="file"
+    webkitdirectory="true"
+    directory=""
+    multiple
+    onChange={handleFolderFiles}
+  />
+</>
           <span className="us-drop-icon">📄</span>
           <p className="us-drop-title">Drop answer scripts or folders here</p>
           <p className="us-drop-sub">or click to browse · PDF and images accepted</p>
