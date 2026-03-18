@@ -41,7 +41,9 @@ const UploadScripts = () => {
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
   const [dragOver,     setDragOver]     = useState(false);
-  const fileInputRef = useRef(null);
+
+  const fileInputRef   = useRef(null);
+  const folderInputRef = useRef(null);
 
   useEffect(() => {
     const stored = JSON.parse(localStorage.getItem("user"));
@@ -117,16 +119,16 @@ const UploadScripts = () => {
       formData.append("examId",    exam._id);
 
       const uploadRes = await fetch(
-  `${API_BASE}/api/uploadscript/answer-scripts`,  // ✅ fix
-  { method: "POST", body: formData }
-);
+        `${API_BASE}/api/uploadscript/answer-scripts`,
+        { method: "POST", body: formData }
+      );
 
       if (!uploadRes.ok) {
         const err = await uploadRes.json().catch(() => ({}));
         throw new Error(err.error || "Upload failed ❌");
       }
 
-      const uploadData  = await uploadRes.json();
+      const uploadData   = await uploadRes.json();
       const uploadedKeys = uploadData.uploaded || uploadData.uploadedFiles || [];
       console.log("✅ Scripts uploaded:", uploadedKeys);
 
@@ -141,7 +143,7 @@ const UploadScripts = () => {
           course:     exam.course,
           examType:   exam.examType,
           evalType:   exam.evalType,
-          scriptKeys: uploadedKeys,   // ✅ pass uploaded keys for evaluation
+          scriptKeys: uploadedKeys,
         }),
       });
 
@@ -221,30 +223,51 @@ const UploadScripts = () => {
         {/* Drop zone */}
         <div
           className={`us-dropzone ${dragOver ? "drag-over" : ""}`}
-          onClick={() => fileInputRef.current?.click()}
           onDrop={handleDrop}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
         >
-          <>
-  <input
-    type="file"
-    accept=".pdf,application/pdf"
-    multiple
-    onChange={handlePdfFiles}
-  />
+          {/* Hidden: individual PDF picker */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,application/pdf"
+            multiple
+            style={{ display: "none" }}
+            onChange={handleFileInput}
+          />
 
-  <input
-    type="file"
-    webkitdirectory="true"
-    directory=""
-    multiple
-    onChange={handleFolderFiles}
-  />
-</>
+          {/* Hidden: folder picker */}
+          <input
+            ref={folderInputRef}
+            type="file"
+            webkitdirectory="true"
+            directory=""
+            multiple
+            style={{ display: "none" }}
+            onChange={handleFileInput}
+          />
+
           <span className="us-drop-icon">📄</span>
           <p className="us-drop-title">Drop answer scripts or folders here</p>
-          <p className="us-drop-sub">or click to browse · PDF and images accepted</p>
+          <p className="us-drop-sub">or use the buttons below · PDF and images accepted</p>
+
+          <div style={{ display: "flex", gap: "12px", marginTop: "12px", justifyContent: "center" }}>
+            <button
+              type="button"
+              className="com-btn primary-btn"
+              onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
+            >
+              📄 Select PDFs
+            </button>
+            <button
+              type="button"
+              className="com-btn"
+              onClick={(e) => { e.stopPropagation(); folderInputRef.current?.click(); }}
+            >
+              📁 Select Folder
+            </button>
+          </div>
         </div>
 
         {/* File list */}
