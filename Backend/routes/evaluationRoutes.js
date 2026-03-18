@@ -254,7 +254,9 @@ router.post("/run", async (req, res) => {
       });
     }
     
-    const scriptPdfs = scriptKeys.map(s => s.key);
+    const scriptPdfs = scriptKeys.map(s => 
+    typeof s === "string" ? s : s.key
+  ).filter(Boolean);
     console.log("📥 Scripts received from frontend:");
     console.log(scriptPdfs);
         
