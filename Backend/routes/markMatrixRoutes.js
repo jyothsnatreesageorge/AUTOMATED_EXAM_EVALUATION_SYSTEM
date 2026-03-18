@@ -221,15 +221,16 @@ router.get("/results", authTeacher, async (req, res) => {
   .map((row) => {
   const parsed = parseResultTableForDisplay(row.resultTable);
 
-  const total    = row.totalMarks;   // ← directly from DB
-  const maxTotal = row.maxMarks;     // ← directly from DB
-  const pct      = maxTotal > 0
-    ? Math.round((total / maxTotal) * 100)
-    : 0;
+  const total    = row.totalMarks;
+  const maxTotal = row.maxMarks;
+  const pct      = maxTotal > 0 ? Math.round((total / maxTotal) * 100) : 0;
+
+  // Explicitly delete old stored questions to avoid confusion
+  const { questions: _old, ...rowWithoutQuestions } = row;
 
   return {
-    ...row,
-    questions: parsed.questions,
+    ...rowWithoutQuestions,
+    questions: parsed.questions,  // always use freshly parsed questions
     total,
     maxTotal,
     pct,
