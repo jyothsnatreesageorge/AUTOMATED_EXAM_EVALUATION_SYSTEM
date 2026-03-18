@@ -112,7 +112,8 @@ router.get("/courses/:studentId", async (req, res) => {
   try {
     const { studentId } = req.params;
 
-    const student = await Student.findById(studentId);
+    // FIX: use rollNo instead of _id
+    const student = await Student.findOne({ rollNo: studentId });
 
     if (!student) {
       return res.status(404).json({ message: "Student not found" });
@@ -133,12 +134,9 @@ router.get("/courses/:studentId", async (req, res) => {
     res.json({ courses });
 
   } catch (error) {
-
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
-
+    console.error("COURSE FETCH ERROR:", error);
+    res.status(500).json({ message: error.message }); // show real error
   }
-
 });
 
 // GET STUDENT RESULT
