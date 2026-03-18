@@ -207,16 +207,22 @@ INPUTS PROVIDED:
 4. Student Answer Sheet (File name = Student Roll Number)
 
 EVALUATION INSTRUCTIONS:
-1. Use the Question Paper to identify questions and max marks.
-2. Use the textbook as primary reference.
-3. Follow the selected evaluation type while awarding marks.
-4. Award full/partial/zero marks with concise justification.
-5. If optional/best-of applies, evaluate all attempted and take best-scoring as per question paper rule.
-6. Output ONLY a markdown table:
-| Roll No | Q1 | Max Marks | Marks Awarded | Justification | ... | Total Marks |
-Do not write anything after the table.
-`.trim();
+1. Use the Question Paper to identify ALL questions and their max marks.
+2. You MUST evaluate EVERY question in the paper — do not stop early.
+3. Use the textbook as primary reference.
+4. Follow the selected evaluation type while awarding marks.
+5. Award full/partial/zero marks with concise justification per question.
+6. If a question was not attempted, award 0 marks with justification "Not attempted".
 
+OUTPUT FORMAT — output ONLY this exact markdown table, nothing else:
+| Roll No | Q1 | Max Marks | Marks Awarded | Justification | Q2 | Max Marks | Marks Awarded | Justification | ... (repeat for ALL questions) | Total Marks |
+
+CRITICAL:
+- Every question from the paper MUST appear as a column group.
+- Do not stop before all questions are covered.
+- Do not write anything before or after the table.
+- Total Marks = sum of all Marks Awarded.
+`.trim();
 /**
  * POST /api/evaluation/run
  * body: { classId, course, examType, force?: boolean }
@@ -344,7 +350,7 @@ router.post("/run", async (req, res) => {
 
         const stream = await ai.models.generateContentStream({
           model: MODEL,
-          config: { temperature: 0.1, topP: 0.9, topK: 10, maxOutputTokens: 8192 },
+          config: { temperature: 0.1, topP: 0.9, topK: 10, maxOutputTokens: 16384 },
           contents,
         });
 
