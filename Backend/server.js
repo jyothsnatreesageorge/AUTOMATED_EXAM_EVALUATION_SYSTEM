@@ -23,7 +23,7 @@ import resultRoutes from "./routes/resultRoutes.js";
 const app = express();
 
 // ── CORS — must be first ──────────────────────────────────────────────────
-app.use(cors({
+const corsOptions = {
   origin: [
     "https://smartautomatedgradingengine.vercel.app",
     "http://localhost:5173",
@@ -32,15 +32,10 @@ app.use(cors({
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true,
-}));
-app.options("*", cors({
-  origin: [
-    "https://smartautomatedgradingengine.vercel.app",
-    "http://localhost:5173",
-    "http://localhost:3000",
-  ],
-  credentials: true,
-}));
+};
+
+app.use(cors(corsOptions));
+app.options(/.*/, cors(corsOptions));  // ✅ handles preflight on Express v5
 
 app.use(express.json());
 
