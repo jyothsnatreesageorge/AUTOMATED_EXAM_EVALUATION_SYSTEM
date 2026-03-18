@@ -11,6 +11,17 @@ import MarkMatrix from "../models/MarkMatrix.js";
 import ReferenceAnswer from "../models/ReferenceAnswer.js";
 import { Buffer } from "buffer";
 
+// ─── Helper: strip empty first/last cells from split("|") ───────────────────
+function splitRow(line) {
+  const parts = line.split("|");
+  // split("|") on "| a | b |" gives ["", " a ", " b ", ""]
+  // so strip index 0 and last
+  return parts
+    .filter((_, i, arr) => i !== 0 && i !== arr.length - 1)
+    .map((c) => c.trim());
+}
+
+// ─── Helper: extract awarded total from result table ────────────────────────
 function extractTotal(resultTable) {
   if (!resultTable) return null;
 
@@ -19,32 +30,56 @@ function extractTotal(resultTable) {
     .map((l) => l.trim())
     .filter((l) => l.startsWith("|"));
 
-  if (lines.length < 2) return null;
+  if (lines.length < 3) return null;
 
-  // header is always first line
-  const header = lines[0]
-    .split("|")
-    .map((c) => c.trim());
+  const header  = splitRow(lines[0]);
+  // last line = student data row (skip separator at lines[1])
+  const dataRow = splitRow(lines[lines.length - 1]);
 
-  // ✅ FIX: data row is the LAST line, not lines[2]
-  // (lines[1] is the separator row like |---|---|)
-  const dataRow = lines[lines.length - 1]
-    ?.split("|")
-    .map((c) => c.trim());
+  console.log("🔍 [extractTotal] Header:", header);
+  console.log("🔍 [extractTotal] DataRow:", dataRow);
 
-  if (!dataRow) return null;
-
-  // find "Total Marks" column index
-  const totalIndex = header.findIndex(h =>
+  const totalIndex = header.findIndex((h) =>
     h.toLowerCase().includes("total")
   );
 
+  console.log("🔍 [extractTotal] totalIndex:", totalIndex, "| cell:", dataRow[totalIndex]);
+
   if (totalIndex === -1) return null;
 
-  const totalCell = dataRow[totalIndex];
-  const n = Number(String(totalCell).replace(/[^\d.]/g, ""));
+  const n = Number(String(dataRow[totalIndex]).replace(/[^\d.]/g, ""));
   return Number.isFinite(n) ? n : null;
 }
+
+// ─── Helper: extract max marks by summing all "Max Marks" columns ────────────
+function extractMaxMarks(resultTable) {
+  if (!resultTable) return null;
+
+  const lines = resultTable
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.startsWith("|"));
+
+  if (lines.length < 3) return null;
+
+  const header  = splitRow(lines[0]);
+  const dataRow = splitRow(lines[lines.length - 1]);
+
+  console.log("🔍 [extractMaxMarks] Header:", header);
+  console.log("🔍 [extractMaxMarks] DataRow:", dataRow);
+
+  let totalMax = 0;
+  header.forEach((col, i) => {
+    if (col.toLowerCase().includes("max marks")) {
+      const n = Number(String(dataRow[i] ?? "").replace(/[^\d.]/g, ""));
+      if (Number.isFinite(n) && n > 0) totalMax += n;
+    }
+  });
+
+  console.log("🔍 [extractMaxMarks] totalMax:", totalMax);
+  return totalMax > 0 ? totalMax : null;
+}
+
 function guessMime(key) {
   return mime.lookup(key) || "application/octet-stream";
 }
@@ -167,14 +202,15 @@ async function generateReferenceAnswers(ai, course, classId, examType, qpKey, qp
     contents,
   });
 
-  let finalText= "";
+  let finalText = "";
   for await (const chunk of stream) {
     const text =
       chunk?.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("") || "";
-     finalText+= text;
+    finalText += text;
   }
 
   if (!finalText) throw new Error("Empty reference answer result from Gemini");
+
   const s3Key = `${course}/${classId}/${examType}/reference-answers/reference.pdf`;
   const pdfBuffer = await textToPDFBuffer(finalText);
   await uploadToS3(BUCKET, s3Key, pdfBuffer, "application/pdf");
@@ -225,65 +261,54 @@ CRITICAL OUTPUT RULES:
 - Do not say "Here is the evaluation" or any preamble.
 - Start your response directly with | Roll No |
 `.trim();
+
 /**
  * POST /api/evaluation/run
- * body: { classId, course, examType, force?: boolean }
+ * body: { classId, course, examType, evalType, force?, scriptKeys }
  */
 router.post("/run", async (req, res) => {
   try {
     const { classId, course, examType, evalType, force, scriptKeys } = req.body || {};
 
     if (!classId || !course || !examType || !evalType) {
-      return res.status(400).json({ error: "classId, course, examType evalType are required" });
+      return res.status(400).json({ error: "classId, course, examType, evalType are required" });
     }
 
     const BUCKET = process.env.S3_BUCKET;
     if (!BUCKET) return res.status(500).json({ error: "Missing S3_BUCKET in Backend .env" });
     if (!process.env.GEMINI_API_KEY) return res.status(500).json({ error: "Missing GEMINI_API_KEY in Backend .env" });
 
-    const basePrefix = `${course}/${classId}/${examType}`;
-    const qpPrefix = `${basePrefix}/question-paper/`;
-    const msPrefix = `${basePrefix}/marking-scheme/`;
-    const refPrefix = `${basePrefix}/reference-text/`;
-    const scriptsPrefix = `${basePrefix}/answer-scripts/`;
+    const basePrefix    = `${course}/${classId}/${examType}`;
+    const qpPrefix      = `${basePrefix}/question-paper/`;
+    const msPrefix      = `${basePrefix}/marking-scheme/`;
+    const refPrefix     = `${basePrefix}/reference-text/`;
 
     const [qpPdfs, msPdfs, refPdfs] = await Promise.all([
       listPdfsS3(BUCKET, qpPrefix),
       listPdfsS3(BUCKET, msPrefix),
       listPdfsS3(BUCKET, refPrefix),
     ]);
-    
-    // 🔥 NEW: decide scripts based on request
-    
-    // 🔥 STRICT: only evaluate scripts sent from frontend
+
+    // only evaluate scripts sent from frontend
     if (!scriptKeys || scriptKeys.length === 0) {
-      return res.status(400).json({
-        error: "No scripts provided for evaluation",
-      });
+      return res.status(400).json({ error: "No scripts provided for evaluation" });
     }
-    
-    const scriptPdfs = scriptKeys.map(s => 
-    typeof s === "string" ? s : s.key
-  ).filter(Boolean);
-    console.log("📥 Scripts received from frontend:");
-    console.log(scriptPdfs);
-        
-    // validations
+
+    const scriptPdfs = scriptKeys
+      .map((s) => (typeof s === "string" ? s : s.key))
+      .filter(Boolean);
+
+    console.log("📥 Scripts received from frontend:", scriptPdfs);
+
     if (!qpPdfs.length) {
-      return res.status(400).json({
-        error: `No Question Paper PDFs found at prefix: ${qpPrefix}`,
-      });
+      return res.status(400).json({ error: `No Question Paper PDFs found at prefix: ${qpPrefix}` });
     }
-    
     if (!scriptPdfs.length) {
-      return res.status(400).json({
-        error: "No scripts provided for evaluation",
-      });
+      return res.status(400).json({ error: "No scripts provided for evaluation" });
     }
-    
-    // pick files
-    const qpKey = qpPdfs[0];
-    const msKey = msPdfs[0] || null;
+
+    const qpKey  = qpPdfs[0];
+    const msKey  = msPdfs[0]  || null;
     const refKey = refPdfs[0] || null;
 
     console.log("\n=== EVALUATION RUN ===");
@@ -294,19 +319,18 @@ router.post("/run", async (req, res) => {
 
     const [qpBytes, msBytes, refBytes] = await Promise.all([
       downloadFromS3(BUCKET, qpKey),
-      msKey ? downloadFromS3(BUCKET, msKey) : Promise.resolve(null),
+      msKey  ? downloadFromS3(BUCKET, msKey)  : Promise.resolve(null),
       refKey ? downloadFromS3(BUCKET, refKey) : Promise.resolve(null),
     ]);
 
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-    let processed = 0;
-    let newlySaved = 0;
-    let updatedExisting = 0;
-    let skippedExisting = 0;
-    const failures = [];
-    console.log("Type of scriptKey:", typeof scriptPdfs[0]);
-    console.log("First scriptKey value:", scriptPdfs[0]);
+    let processed        = 0;
+    let newlySaved       = 0;
+    let updatedExisting  = 0;
+    let skippedExisting  = 0;
+    const failures       = [];
+
     // ── Evaluation loop ──────────────────────────────────────────────────────
     for (const scriptKey of scriptPdfs) {
       processed++;
@@ -315,10 +339,11 @@ router.post("/run", async (req, res) => {
       try {
         const exists = await MarkMatrix.findOne({ scriptKey }).lean();
         if (exists && !force) {
-        console.log("⏭ Skipping already evaluated:", scriptKey);
-        skippedExisting++;
-        continue;
-      }
+          console.log("⏭ Skipping already evaluated:", scriptKey);
+          skippedExisting++;
+          continue;
+        }
+
         console.log(`\n---- Evaluating (${processed}/${scriptPdfs.length}): ${scriptKey} ----`);
 
         const scriptBytes = await downloadFromS3(BUCKET, scriptKey);
@@ -356,7 +381,7 @@ router.post("/run", async (req, res) => {
           contents,
         });
 
-        let finalText= "";
+        let finalText = "";
         for await (const chunk of stream) {
           const text =
             chunk?.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("") || "";
@@ -364,25 +389,33 @@ router.post("/run", async (req, res) => {
         }
 
         const tableStart = finalText.indexOf("| Roll No");
-    if (tableStart === -1) throw new Error("Gemini did not return a valid table");
-    const resultTable = finalText.slice(tableStart).trim();
-    if (!resultTable) throw new Error("Empty result from Gemini");;
+        if (tableStart === -1) throw new Error("Gemini did not return a valid table");
+        const resultTable = finalText.slice(tableStart).trim();
+        if (!resultTable) throw new Error("Empty result from Gemini");
 
+        // ── extract marks ────────────────────────────────────────────────────
         const totalMarks = extractTotal(resultTable);
+        const maxMarks   = extractMaxMarks(resultTable);
+
+        console.log(`📊 rollNo=${rollNo} | totalMarks=${totalMarks} | maxMarks=${maxMarks}`);
 
         await MarkMatrix.updateOne(
           { scriptKey },
           {
             $set: {
               rollNo, scriptKey, classId, course, examType,
-              resultTable, totalMarks, status: "done", error: "",
+              resultTable,
+              totalMarks,   // ✅ marks awarded to student
+              maxMarks,     // ✅ maximum possible marks
+              status: "done",
+              error: "",
             },
           },
           { upsert: true }
         );
 
         if (exists) updatedExisting++; else newlySaved++;
-        console.log(`✅ Saved: rollNo=${rollNo}`);
+        console.log(`✅ Saved: rollNo=${rollNo} | totalMarks=${totalMarks} | maxMarks=${maxMarks}`);
 
       } catch (e) {
         console.error("❌ Failed script:", scriptKey, e?.message || e);
@@ -392,7 +425,8 @@ router.post("/run", async (req, res) => {
           {
             $set: {
               rollNo, scriptKey, classId, course, examType,
-              resultTable: "", status: "failed",
+              resultTable: "",
+              status: "failed",
               error: e?.message || String(e),
               updatedAt: new Date(),
             },
@@ -406,7 +440,7 @@ router.post("/run", async (req, res) => {
     }
 
     // ── Generate reference answers after evaluation ───────────────────────────
-    let referenceAnswer = null;
+    let referenceAnswer      = null;
     let referenceAnswerError = null;
 
     try {
