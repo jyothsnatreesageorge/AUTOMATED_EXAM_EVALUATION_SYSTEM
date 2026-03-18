@@ -21,17 +21,20 @@ function extractTotal(resultTable) {
 
   if (lines.length < 2) return null;
 
+  // header is always first line
   const header = lines[0]
     .split("|")
     .map((c) => c.trim());
 
-  const dataRow = lines[2]
+  // ✅ FIX: data row is the LAST line, not lines[2]
+  // (lines[1] is the separator row like |---|---|)
+  const dataRow = lines[lines.length - 1]
     ?.split("|")
     .map((c) => c.trim());
 
   if (!dataRow) return null;
 
-  // 🔍 Find index of "Total"
+  // find "Total Marks" column index
   const totalIndex = header.findIndex(h =>
     h.toLowerCase().includes("total")
   );
@@ -39,7 +42,6 @@ function extractTotal(resultTable) {
   if (totalIndex === -1) return null;
 
   const totalCell = dataRow[totalIndex];
-
   const n = Number(String(totalCell).replace(/[^\d.]/g, ""));
   return Number.isFinite(n) ? n : null;
 }
