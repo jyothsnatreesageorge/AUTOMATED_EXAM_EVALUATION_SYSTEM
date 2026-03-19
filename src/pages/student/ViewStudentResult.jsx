@@ -296,8 +296,8 @@ const ViewResult = () => {
             {tab === "text" && (
               <div>
                 <p className="vsr-ocr-hint">
-                  This is exactly what the AI read from your handwritten answer sheet.
-                  If you notice any errors, contact your teacher for a re-evaluation request.
+                  This is exactly what the system read from your handwritten answer sheet.
+                  If you notice any errors, request for revaluation.
                 </p>
 
                 {ocrStatus === "done" && extractedText && (
