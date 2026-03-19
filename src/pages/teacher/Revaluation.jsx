@@ -89,10 +89,11 @@ const Revaluation = () => {
         <h2 className="logo">SAGE</h2>
 
         <div className="user-info">
-          <div className="avatar">T</div>
-
+          <div className="avatar">
+            {teacher?.name ? teacher.name.charAt(0).toUpperCase() : "T"}
+          </div>
           <div className="user-details">
-            <h4>{teacher?.name}</h4>
+            <h4>{teacher?.name || "Teacher"}</h4>
             <p>Teacher</p>
           </div>
         </div>
