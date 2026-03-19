@@ -19,10 +19,6 @@ const s3 = new S3Client({
 const storage = multer.memoryStorage();
 const upload  = multer({ storage });
 
-// ── Direct PDF → Groq OCR ─────────────────────────────────────────────────────
-// ✅ No canvas, no pdfjs, no RAM-heavy page rendering
-// Sends the raw PDF as base64 directly to Groq vision model
-// Groq reads all pages in one call — much faster and lighter
 async function extractPdfWithGroq(pdfBuffer, rollNo, retries = 2) {
   const client     = new Groq({ apiKey: process.env.GROQ_API_KEY });
   const base64Pdf  = pdfBuffer.toString("base64");
@@ -106,11 +102,10 @@ async function runBackgroundOcr({
       { upsert: true }
     );
 
-    // ✅ Single Groq call for entire PDF — no page-by-page loop needed
+    
     const extractedText = await extractPdfWithGroq(fileBuffer, rollNo);
 
-    // Parse page sections from the response to populate ocrPages array
-    // so student "My Extracted Answers" tab still works page by page
+  
     const ocrPages = [];
     const pageRegex = /===\s*Page\s*(\d+)\s*===\s*([\s\S]*?)(?====\s*Page\s*\d+\s*===|$)/gi;
     let match;
