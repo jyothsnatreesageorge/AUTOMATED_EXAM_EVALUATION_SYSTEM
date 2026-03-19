@@ -5,12 +5,14 @@ import "../admin/AdminDashboard.css";
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 
 const NAV_ITEMS = [
-  { label: "Dashboard",        icon: "⊞", path: "/teacher" },
-  { label: "Evaluation",       icon: "📋", path: "/evaluation", active: true },
-  { label: "View Results",     icon: "📊", path: "/view-mark" },
+  { label: "Dashboard", icon: "⊞", path: "/teacher" },
+  { label: "Evaluation", icon: "📋", path: "/evaluation", active: true},
+  { label: "View Results", icon: "📊", path: "/view-mark" },
   { label: "Reference Answer", icon: "📖", path: "/reference-answer" },
-  { label: "Revaluation",      icon: "🔄", path: "/revaluation" },
+  { label: "Revaluation", icon: "🔄", path: "/revaluation" },
+  { label: "My Classes",icon:"🏫",path:"/courseclass"},
 ];
+
 
 /* ── Buffering Modal ── */
 const EvaluatingModal = ({ message }) => (
@@ -195,6 +197,14 @@ const UploadScripts = () => {
 
       {/* Main */}
       <main className="main">
+        <div className="logout-container">
+          <button
+            className="com-btn logout-btn-top"
+            onClick={() => navigate("/evaluation")}
+          >
+            ↩ Back
+          </button>
+        </div>
 
         {/* ── Success Screen ── */}
         {evalSuccess ? (
@@ -224,9 +234,6 @@ const UploadScripts = () => {
 
           /* ── Upload Screen ── */
           <div>
-            <button className="us-back-btn" onClick={() => navigate("/evaluation")}>
-              ← Back to Evaluation
-            </button>
             <h1 className="page-title">Upload <span>Answer Scripts</span></h1>
 
             {exam && (
