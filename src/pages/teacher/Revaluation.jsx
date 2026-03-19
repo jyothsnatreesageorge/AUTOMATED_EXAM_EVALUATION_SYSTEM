@@ -13,6 +13,22 @@ const Revaluation = () => {
 
   const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
+  const NAV_ITEMS = [
+    { label: "Dashboard",        icon: "⊞", path: "/teacher" },
+    { label: "My Classes",       icon: "🏫", path: "/teacher/classes" },
+    { label: "Evaluation",       icon: "📋", path: "/evaluation" },
+    { label: "View Results",     icon: "📊", path: "/view-mark" },
+    { label: "Reference Answer", icon: "📖", path: "/reference-answer" },
+    {
+      label: "Revaluation",
+      icon: "🔄",
+      path: "/revaluation",
+      active: true,
+      badge: pendingCount,
+    },
+    { label: "My Classes",       icon: "🏫", path: "/courseclass" },
+  ];
+
   /* Load pending revaluation requests */
   useEffect(() => {
     if (!teacher?._id) return;
@@ -65,19 +81,7 @@ const Revaluation = () => {
     setNewMark("");
   };
 
-  const NAV_ITEMS = [
-    { label: "Dashboard", icon: "⊞", path: "/teacher" },
-    { label: "Evaluation", icon: "📋", path: "/evaluation" },
-    { label: "View Results", icon: "📊", path: "/view-mark" },
-    { label: "Reference Answer", icon: "📖", path: "/reference-answer" },
-    {
-      label: "Revaluation",
-      icon: "🔄",
-      path: "/revaluation",
-      active: true,
-      badge: pendingCount,
-    },
-  ];
+  
 
   return (
     <div className="container">
