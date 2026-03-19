@@ -45,6 +45,8 @@ const StudentManagement = () => {
 
   const [students, setStudents] = useState([]);
   const [classesList, setClassesList] = useState([]);
+  // ✅ Separate total count — unaffected by search/class filter
+  const [totalCount, setTotalCount] = useState(0);
 
   const [search, setSearch] = useState("");
   const [filterClass, setFilterClass] = useState("All");
@@ -75,14 +77,20 @@ const StudentManagement = () => {
   const fetchClasses = async () => {
     const res = await fetch(`${API_BASE}/api/classes`);
     const data = await res.json();
-
     if (!res.ok) throw new Error(data?.message || "Failed to fetch classes");
     setClassesList(Array.isArray(data) ? data : []);
   };
 
+  // ✅ Fetch total count once — no filters applied
+  const fetchTotalCount = async () => {
+    const res = await fetch(`${API_BASE}/api/students`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data?.message || "Failed to fetch total count");
+    setTotalCount(Array.isArray(data) ? data.length : 0);
+  };
+
   const fetchStudents = async () => {
     const params = new URLSearchParams();
-
     if (search.trim()) params.set("q", search.trim());
     if (filterClass !== "All") params.set("classId", filterClass);
 
@@ -90,20 +98,16 @@ const StudentManagement = () => {
       ? `${API_BASE}/api/students?${params.toString()}`
       : `${API_BASE}/api/students`;
 
-    console.log("Fetching students from:", url);
-
     const res = await fetch(url);
     const data = await res.json();
-
-    console.log("Selected class:", filterClass);
-    console.log("API returned students:", data);
-
     if (!res.ok) throw new Error(data?.message || "Failed to fetch students");
     setStudents(Array.isArray(data) ? data : []);
   };
 
   useEffect(() => {
     fetchClasses().catch((e) => alert(e.message));
+    // ✅ Fetch total count once on mount — never re-fetched on filter change
+    fetchTotalCount().catch((e) => console.error("Total count fetch failed:", e.message));
   }, []);
 
   useEffect(() => {
@@ -121,7 +125,6 @@ const StudentManagement = () => {
     const matchSearch = [s.name, s.rollNo, s.admnNo, s.email, s.classId, s.semester]
       .filter(Boolean)
       .some((v) => String(v).toLowerCase().includes(search.toLowerCase()));
-
     return matchSearch;
   });
 
@@ -134,12 +137,12 @@ const StudentManagement = () => {
     rollCollator.compare(String(a.rollNo || ""), String(b.rollNo || ""))
   );
 
-  const totalStudents = students.length;
+  // ✅ totalStudents now uses the separately fetched totalCount
+  const totalStudents = totalCount;
   const totalClasses = allClasses.length - 1;
 
   const handleAdd = async () => {
     const finalClass = filterClass !== "All" ? filterClass : newClass;
-
     if (!newName.trim() || !newRoll.trim() || !finalClass.trim() || !newEmail.trim()) {
       alert("Please fill all fields ❌");
       return;
@@ -172,7 +175,9 @@ const StudentManagement = () => {
       setNewEmail("");
       setShowAddForm(false);
 
+      // ✅ Refresh both filtered list and total count
       await fetchStudents();
+      await fetchTotalCount();
     } catch (e) {
       alert(e.message);
     }
@@ -231,7 +236,9 @@ const StudentManagement = () => {
       }
 
       setDeleteTarget(null);
+      // ✅ Refresh both filtered list and total count after delete
       await fetchStudents();
+      await fetchTotalCount();
     } catch (e) {
       alert(e.message);
     }
@@ -350,8 +357,6 @@ const StudentManagement = () => {
         classId: selectedClassId,
       }));
 
-      console.log("Batch rows being sent:", rows);
-
       const bad = rows.findIndex((r) => !r.rollNo || !r.name || !r.email);
       if (bad !== -1) {
         alert(`Row ${bad + 2} missing rollNo/name/email ❌`);
@@ -366,8 +371,6 @@ const StudentManagement = () => {
       });
 
       const data = await res.json();
-      console.log("Batch upload response:", data);
-
       if (!res.ok) {
         throw new Error(
           (data?.message || "Batch upload failed") +
@@ -387,7 +390,9 @@ const StudentManagement = () => {
           : `Batch upload successful. Inserted ${data.inserted} students.`
       );
 
+      // ✅ Refresh both filtered list and total count after batch upload
       await fetchStudents();
+      await fetchTotalCount();
     } catch (e) {
       console.error("Batch upload failed:", e);
       setBatchStatus("");
@@ -529,7 +534,6 @@ const StudentManagement = () => {
         {showAddForm && (
           <div className="com-card tm-add-form" style={{ marginBottom: "20px" }}>
             <h3>Add New Student</h3>
-
             <div className="tm-form-grid">
               <input
                 placeholder="Full Name"
@@ -541,12 +545,9 @@ const StudentManagement = () => {
                 value={newRoll}
                 onChange={(e) => setNewRoll(e.target.value)}
               />
-
               {filterClass !== "All" ? (
                 <div className="sm-class-locked">
-                  <span>
-                    Class: <strong>{filterClass}</strong>
-                  </span>
+                  <span>Class: <strong>{filterClass}</strong></span>
                 </div>
               ) : (
                 <select
@@ -554,9 +555,7 @@ const StudentManagement = () => {
                   value={newClass}
                   onChange={(e) => setNewClass(e.target.value)}
                 >
-                  <option value="" disabled>
-                    Select Class
-                  </option>
+                  <option value="" disabled>Select Class</option>
                   {classesList.map((c) => (
                     <option key={c._id || c.classId} value={c.classId}>
                       {c.classId}
@@ -564,7 +563,6 @@ const StudentManagement = () => {
                   ))}
                 </select>
               )}
-
               <input
                 placeholder="Email Address"
                 value={newEmail}
@@ -572,7 +570,6 @@ const StudentManagement = () => {
                 type="email"
               />
             </div>
-
             <button className="com-btn primary-btn" onClick={handleAdd}>
               + Add Student
             </button>
@@ -582,7 +579,6 @@ const StudentManagement = () => {
         {showBatch && (
           <div className="com-card sm-batch-card">
             <h3>📂 Batch Import Students</h3>
-
             <div className="sm-batch-upload-row">
               <label className="sm-file-label">
                 <input
@@ -596,7 +592,6 @@ const StudentManagement = () => {
                   📎 {batchFile ? batchFile.name : "Choose File"}
                 </span>
               </label>
-
               <button
                 className="com-btn primary-btn"
                 onClick={handleBatchUpload}
@@ -605,7 +600,6 @@ const StudentManagement = () => {
                 {batchStatus === "processing" ? "Importing…" : "Import"}
               </button>
             </div>
-
             {batchStatus === "done" && (
               <p className="success-text">✅ Batch processed.</p>
             )}
@@ -615,7 +609,6 @@ const StudentManagement = () => {
         {showBatchSem && (
           <div className="com-card sm-batch-sem-card">
             <h3>🔄 Batch Update Semester</h3>
-
             <div className="sm-sem-action-row">
               <SemesterSelect
                 className="sm-select"
@@ -631,7 +624,6 @@ const StudentManagement = () => {
                 Apply
               </button>
             </div>
-
             {batchSemStatus === "done" && (
               <p className="success-text">✅ Semester updated successfully!</p>
             )}
@@ -661,13 +653,10 @@ const StudentManagement = () => {
                 <th>Actions</th>
               </tr>
             </thead>
-
             <tbody>
               {filteredSorted.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="tm-empty">
-                    No students found.
-                  </td>
+                  <td colSpan={8} className="tm-empty">No students found.</td>
                 </tr>
               ) : (
                 filteredSorted.map((student) =>
@@ -675,26 +664,14 @@ const StudentManagement = () => {
                     <tr key={student._id}>
                       <td />
                       <td>
-                        <input
-                          className="tm-inline-input"
-                          value={editRoll}
-                          onChange={(e) => setEditRoll(e.target.value)}
-                        />
+                        <input className="tm-inline-input" value={editRoll} onChange={(e) => setEditRoll(e.target.value)} />
                       </td>
                       <td>
-                        <input
-                          className="tm-inline-input"
-                          value={editName}
-                          onChange={(e) => setEditName(e.target.value)}
-                        />
+                        <input className="tm-inline-input" value={editName} onChange={(e) => setEditName(e.target.value)} />
                       </td>
                       <td>{student.admnNo}</td>
                       <td>
-                        <input
-                          className="tm-inline-input"
-                          value={editClass}
-                          onChange={(e) => setEditClass(e.target.value)}
-                        />
+                        <input className="tm-inline-input" value={editClass} onChange={(e) => setEditClass(e.target.value)} />
                       </td>
                       <td>
                         <select
@@ -702,73 +679,34 @@ const StudentManagement = () => {
                           value={editSemester}
                           onChange={(e) => setEditSemester(e.target.value)}
                         >
-                          <option value="" disabled>
-                            Sem
-                          </option>
+                          <option value="" disabled>Sem</option>
                           {SEMESTERS.map((s) => (
-                            <option key={s} value={s}>
-                              {s}
-                            </option>
+                            <option key={s} value={s}>{s}</option>
                           ))}
                         </select>
                       </td>
                       <td>
-                        <input
-                          className="tm-inline-input"
-                          value={editEmail}
-                          onChange={(e) => setEditEmail(e.target.value)}
-                          type="email"
-                        />
+                        <input className="tm-inline-input" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} type="email" />
                       </td>
                       <td className="tm-actions">
-                        <button
-                          className="tm-btn tm-save-btn"
-                          onClick={() => handleEditSave(student._id)}
-                        >
-                          💾 Save
-                        </button>
-                        <button
-                          className="tm-btn tm-cancel-btn"
-                          onClick={() => setEditingId(null)}
-                        >
-                          ✕
-                        </button>
+                        <button className="tm-btn tm-save-btn" onClick={() => handleEditSave(student._id)}>💾 Save</button>
+                        <button className="tm-btn tm-cancel-btn" onClick={() => setEditingId(null)}>✕</button>
                       </td>
                     </tr>
                   ) : (
                     <tr key={student._id}>
                       <td>
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.includes(student._id)}
-                          onChange={() => toggleSelect(student._id)}
-                        />
+                        <input type="checkbox" checked={selectedIds.includes(student._id)} onChange={() => toggleSelect(student._id)} />
                       </td>
                       <td>{student.rollNo}</td>
                       <td>{student.name}</td>
                       <td>{student.admnNo}</td>
-                      <td>
-                        <span className="tm-badge">{student.classId}</span>
-                      </td>
-                      <td>
-                        <span className="sm-sem-badge">{student.semester}</span>
-                      </td>
+                      <td><span className="tm-badge">{student.classId}</span></td>
+                      <td><span className="sm-sem-badge">{student.semester}</span></td>
                       <td>{student.email}</td>
                       <td className="tm-actions">
-                        <button
-                          className="tm-btn tm-edit-btn"
-                          onClick={() => handleEditOpen(student)}
-                        >
-                          ✏️
-                        </button>
-                        <button
-                          className="tm-btn tm-delete-btn"
-                          onClick={() =>
-                            setDeleteTarget({ type: "student", value: student._id })
-                          }
-                        >
-                          🗑️
-                        </button>
+                        <button className="tm-btn tm-edit-btn" onClick={() => handleEditOpen(student)}>✏️</button>
+                        <button className="tm-btn tm-delete-btn" onClick={() => setDeleteTarget({ type: "student", value: student._id })}>🗑️</button>
                       </td>
                     </tr>
                   )
@@ -785,12 +723,8 @@ const StudentManagement = () => {
             <h3>Delete Student?</h3>
             <p>{students.find((s) => s._id === deleteTarget.value)?.name} will be removed.</p>
             <div className="tm-confirm-actions">
-              <button className="com-btn" onClick={() => setDeleteTarget(null)}>
-                Cancel
-              </button>
-              <button className="com-btn danger-btn" onClick={handleDeleteConfirm}>
-                Confirm Delete
-              </button>
+              <button className="com-btn" onClick={() => setDeleteTarget(null)}>Cancel</button>
+              <button className="com-btn danger-btn" onClick={handleDeleteConfirm}>Confirm Delete</button>
             </div>
           </div>
         </div>
