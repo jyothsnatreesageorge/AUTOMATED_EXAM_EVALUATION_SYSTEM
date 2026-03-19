@@ -290,7 +290,6 @@ const UploadScripts = () => {
                   📄 Select PDFs
                 </button>
                 <button
-                  type="button"
                   className="com-btn view-btn"
                   onClick={(e) => { e.stopPropagation(); folderInputRef.current?.click(); }}
                 >
