@@ -5,28 +5,31 @@ import { createRequire } from "module";
 import { PutObjectCommand, GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import Groq from "groq-sdk";
 import Result from "../models/Result.js";
-import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
-import { createCanvas } from "canvas";
 
-const router = express.Router();
+const router  = express.Router();
 const require = createRequire(import.meta.url);
 
+// ── S3 client ─────────────────────────────────────────────────────────────────
 const s3 = new S3Client({
   region: process.env.AWS_REGION,
   credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    accessKeyId:     process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
   },
 });
 
 const storage = multer.memoryStorage();
-const upload = multer({ storage });
+const upload  = multer({ storage });
 
-const pdfjsBasePath = path.dirname(require.resolve("pdfjs-dist/package.json"));
-pdfjsLib.GlobalWorkerOptions.workerSrc = path.join(
-  pdfjsBasePath,
-  "legacy/build/pdf.worker.min.mjs"
-);
+// ── pdfjs-dist v3 + canvas ────────────────────────────────────────────────────
+// IMPORTANT: package.json must pin "pdfjs-dist": "3.11.174"
+// v4+ removed /legacy/build/pdf.js — v3 is stable and works perfectly on Render
+const pdfjsLib = (() => {
+  const p = require("pdfjs-dist/legacy/build/pdf.js");
+  return p.default ?? p;
+})();
+const { createCanvas } = require("canvas");
+pdfjsLib.GlobalWorkerOptions.workerSrc = false;
 
 async function pdfToJpegBuffers(pdfBuffer) {
   const data   = new Uint8Array(pdfBuffer);
@@ -35,13 +38,12 @@ async function pdfToJpegBuffers(pdfBuffer) {
 
   for (let i = 1; i <= pdfDoc.numPages; i++) {
     const page     = await pdfDoc.getPage(i);
-    const viewport = page.getViewport({ scale: 2.0 }); // 2x = good clarity for handwriting
+    const viewport = page.getViewport({ scale: 2.0 });
     const canvas   = createCanvas(viewport.width, viewport.height);
     const ctx      = canvas.getContext("2d");
 
     await page.render({ canvasContext: ctx, viewport }).promise;
 
-    // canvas.toBuffer("image/jpeg") produces real JPEG bytes — Groq accepts this
     pages.push({
       pageNum: i,
       buffer:  canvas.toBuffer("image/jpeg", { quality: 0.92 }),
@@ -88,7 +90,6 @@ async function ocrPageWithGroq(jpegBuffer, pageNum, rollNo, maxRetries = 5) {
             content: [
               {
                 type:      "image_url",
-                // ✅ Real JPEG bytes — canvas.toBuffer("image/jpeg") guarantees this
                 image_url: { url: `data:image/jpeg;base64,${base64Image}` },
               },
               {
@@ -118,14 +119,13 @@ Output only the transcribed text — no preamble, no explanation.`,
         await new Promise((r) => setTimeout(r, waitMs));
         continue;
       }
-
       console.error(`  ❌ [OCR] Page ${pageNum} failed for ${rollNo}:`, err.message);
       throw err;
     }
   }
 }
 
-// ── Background OCR: PDF → real JPEGs → Groq vision per page ──────────────────
+// ── Background OCR ────────────────────────────────────────────────────────────
 async function runBackgroundOcr({
   fileBuffer, scriptKey, rollNo, classId, course, examType, examId,
 }) {
@@ -145,12 +145,10 @@ async function runBackgroundOcr({
       { upsert: true }
     );
 
-    // Step 1: Render PDF pages to real JPEG buffers
     console.log(`  [BG OCR] Rendering PDF pages for ${rollNo}…`);
     const pages = await pdfToJpegBuffers(fileBuffer);
     console.log(`  [BG OCR] ${pages.length} page(s) rendered for ${rollNo}`);
 
-    // Step 2: OCR each page with Groq vision
     const ocrPages = [];
     for (const { pageNum, buffer } of pages) {
       console.log(`  [BG OCR] OCR page ${pageNum}/${pages.length} for ${rollNo}…`);
@@ -158,7 +156,6 @@ async function runBackgroundOcr({
       ocrPages.push({ page: pageNum, text });
     }
 
-    // Step 3: Combine into full extractedText
     const extractedText = ocrPages
       .map((p) => `=== Page ${p.page} ===\n${p.text}`)
       .join("\n\n");
@@ -288,7 +285,6 @@ router.post(
 
       res.json({ message: "Scripts uploaded successfully ✅", uploadedFiles, uploaded: uploadedFiles });
 
-      // Sequential — one script at a time to avoid RAM spike from canvas rendering
       ;(async () => {
         for (const item of ocrQueue) {
           try {
@@ -341,4 +337,3 @@ router.get("/ocr-status", async (req, res) => {
 });
 
 export default router;
-
