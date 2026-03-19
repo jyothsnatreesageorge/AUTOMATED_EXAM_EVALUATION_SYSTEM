@@ -1,34 +1,25 @@
 import express from "express";
 import multer from "multer";
 import path from "path";
-import { createRequire } from "module";
 import { PutObjectCommand, GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import Groq from "groq-sdk";
 import Result from "../models/Result.js";
+import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
+import { createCanvas } from "canvas";
 
-const router  = express.Router();
-const require = createRequire(import.meta.url);
+const router = express.Router();
 
-// ── S3 client ─────────────────────────────────────────────────────────────────
 const s3 = new S3Client({
   region: process.env.AWS_REGION,
   credentials: {
-    accessKeyId:     process.env.AWS_ACCESS_KEY_ID,
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
   },
 });
 
 const storage = multer.memoryStorage();
-const upload  = multer({ storage });
+const upload = multer({ storage });
 
-// ── pdfjs + canvas: render each PDF page to a real JPEG buffer ────────────────
-// This is the ONLY reliable way to get real JPEG bytes that Groq vision accepts.
-// pdfjs-dist and canvas are already in your package.json.
-const pdfjsLib = (() => {
-  const p = require("pdfjs-dist/legacy/build/pdf.js");
-  return p.default ?? p;
-})();
-const { createCanvas } = require("canvas");
 pdfjsLib.GlobalWorkerOptions.workerSrc = false;
 
 async function pdfToJpegBuffers(pdfBuffer) {
