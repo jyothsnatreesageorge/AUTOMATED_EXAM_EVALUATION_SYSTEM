@@ -104,11 +104,6 @@ const Revaluation = () => {
               key={label}
               className={active ? "active" : ""}
               onClick={() => navigate(path)}
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
             >
               <span>
                 <span className="nav-icon">{icon}</span>
