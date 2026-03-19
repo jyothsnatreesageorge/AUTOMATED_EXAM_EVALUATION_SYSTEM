@@ -1,6 +1,7 @@
 import express from "express";
 import multer from "multer";
 import path from "path";
+import { createRequire } from "module";
 import { PutObjectCommand, GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import Groq from "groq-sdk";
 import Result from "../models/Result.js";
@@ -8,6 +9,7 @@ import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 import { createCanvas } from "canvas";
 
 const router = express.Router();
+const require = createRequire(import.meta.url);
 
 const s3 = new S3Client({
   region: process.env.AWS_REGION,
@@ -20,7 +22,11 @@ const s3 = new S3Client({
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = false;
+const pdfjsBasePath = path.dirname(require.resolve("pdfjs-dist/package.json"));
+pdfjsLib.GlobalWorkerOptions.workerSrc = path.join(
+  pdfjsBasePath,
+  "legacy/build/pdf.worker.min.mjs"
+);
 
 async function pdfToJpegBuffers(pdfBuffer) {
   const data   = new Uint8Array(pdfBuffer);
