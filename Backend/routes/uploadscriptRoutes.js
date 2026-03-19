@@ -1,11 +1,13 @@
 import express from "express";
 import multer from "multer";
 import path from "path";
+import { createRequire } from "module";
 import { PutObjectCommand, GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import Groq from "groq-sdk";
 import Result from "../models/Result.js";
 
-const router = express.Router();
+const router  = express.Router();
+const require = createRequire(import.meta.url);
 
 // ── S3 client ─────────────────────────────────────────────────────────────────
 const s3 = new S3Client({
@@ -19,37 +21,86 @@ const s3 = new S3Client({
 const storage = multer.memoryStorage();
 const upload  = multer({ storage });
 
-async function extractPdfWithGroq(pdfBuffer, rollNo, retries = 2) {
-  const client     = new Groq({ apiKey: process.env.GROQ_API_KEY });
-  const base64Pdf  = pdfBuffer.toString("base64");
+// ── pdfjs + canvas: render each PDF page to a real JPEG buffer ────────────────
+// This is the ONLY reliable way to get real JPEG bytes that Groq vision accepts.
+// pdfjs-dist and canvas are already in your package.json.
+const pdfjsLib = (() => {
+  const p = require("pdfjs-dist/legacy/build/pdf.js");
+  return p.default ?? p;
+})();
+const { createCanvas } = require("canvas");
+pdfjsLib.GlobalWorkerOptions.workerSrc = false;
 
-  for (let attempt = 1; attempt <= retries + 1; attempt++) {
+async function pdfToJpegBuffers(pdfBuffer) {
+  const data   = new Uint8Array(pdfBuffer);
+  const pdfDoc = await pdfjsLib.getDocument({ data }).promise;
+  const pages  = [];
+
+  for (let i = 1; i <= pdfDoc.numPages; i++) {
+    const page     = await pdfDoc.getPage(i);
+    const viewport = page.getViewport({ scale: 2.0 }); // 2x = good clarity for handwriting
+    const canvas   = createCanvas(viewport.width, viewport.height);
+    const ctx      = canvas.getContext("2d");
+
+    await page.render({ canvasContext: ctx, viewport }).promise;
+
+    // canvas.toBuffer("image/jpeg") produces real JPEG bytes — Groq accepts this
+    pages.push({
+      pageNum: i,
+      buffer:  canvas.toBuffer("image/jpeg", { quality: 0.92 }),
+    });
+  }
+
+  return pages;
+}
+
+// ── Groq rate-limit helpers ───────────────────────────────────────────────────
+function parseGroqRetryDelay(errMessage) {
+  const secMatch = String(errMessage).match(/try again in ([\d.]+)s/i);
+  if (secMatch) {
+    const secs = parseFloat(secMatch[1]);
+    if (!isNaN(secs) && secs > 0) {
+      return Math.min(Math.ceil(secs + 2) * 1000, 2 * 60 * 60 * 1000);
+    }
+  }
+  return String(errMessage).includes("tokens per day") ? 5 * 60 * 1000 : 60 * 1000;
+}
+
+function isGroqRateLimit(err) {
+  return (
+    err?.status === 429 ||
+    String(err?.message || "").includes("rate_limit_exceeded") ||
+    String(err?.message || "").includes("429")
+  );
+}
+
+// ── Groq Vision: OCR one real JPEG page ──────────────────────────────────────
+async function ocrPageWithGroq(jpegBuffer, pageNum, rollNo, maxRetries = 5) {
+  const client      = new Groq({ apiKey: process.env.GROQ_API_KEY });
+  const base64Image = jpegBuffer.toString("base64");
+
+  for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
     try {
       const response = await client.chat.completions.create({
         model:       "meta-llama/llama-4-scout-17b-16e-instruct",
-        max_tokens:  8192,
+        max_tokens:  4096,
         temperature: 0.1,
         messages: [
           {
             role: "user",
             content: [
               {
-                type: "text",
-                text: `This is a handwritten student answer sheet for roll number ${rollNo}.
-Transcribe ALL handwritten text exactly as written, page by page.
-Use this format for each page:
-=== Page N ===
-[transcribed text for that page]
-
-Preserve all question numbers, headings, and answer structure.
-If a page or section is blank or unreadable, write "(blank)".
-Output only the transcribed text — no preamble, no explanation.`,
+                type:      "image_url",
+                // ✅ Real JPEG bytes — canvas.toBuffer("image/jpeg") guarantees this
+                image_url: { url: `data:image/jpeg;base64,${base64Image}` },
               },
               {
-                type:      "image_url",
-                image_url: {
-                  url: `data:application/pdf;base64,${base64Pdf}`,
-                },
+                type: "text",
+                text: `This is page ${pageNum} of a handwritten student answer sheet (Roll No: ${rollNo}).
+Transcribe ALL handwritten text exactly as written.
+Preserve question numbers, headings, and answer structure.
+If a section is blank or completely unreadable, write "(blank)".
+Output only the transcribed text — no preamble, no explanation.`,
               },
             ],
           },
@@ -61,65 +112,59 @@ Output only the transcribed text — no preamble, no explanation.`,
       return text;
 
     } catch (err) {
-      console.error(`  OCR attempt ${attempt} failed for ${rollNo}:`, err.message);
-      if (attempt <= retries) {
-        await new Promise((r) => setTimeout(r, 3000));
-      } else {
-        return `(error: ${err.message})`;
+      if (isGroqRateLimit(err) && attempt <= maxRetries) {
+        const waitMs = parseGroqRetryDelay(err.message);
+        const isTPD  = String(err.message).includes("tokens per day");
+        console.warn(
+          `  ⏳ [OCR] Groq ${isTPD ? "TPD" : "RPM"} limit — waiting ${Math.round(waitMs / 1000)}s (attempt ${attempt}/${maxRetries}) for ${rollNo} page ${pageNum}…`
+        );
+        await new Promise((r) => setTimeout(r, waitMs));
+        continue;
       }
+
+      console.error(`  ❌ [OCR] Page ${pageNum} failed for ${rollNo}:`, err.message);
+      throw err;
     }
   }
 }
 
-// ── Background OCR — sequential, one script at a time ────────────────────────
+// ── Background OCR: PDF → real JPEGs → Groq vision per page ──────────────────
 async function runBackgroundOcr({
-  fileBuffer,
-  scriptKey,
-  rollNo,
-  classId,
-  course,
-  examType,
-  examId,
+  fileBuffer, scriptKey, rollNo, classId, course, examType, examId,
 }) {
   try {
     console.log(`\n🔍 [BG OCR] Starting: ${scriptKey}`);
 
-    // Mark as pending
     await Result.updateOne(
       { scriptKey },
       {
         $set: {
-          rollNo,
-          scriptKey,
-          classId,
-          course,
-          examType,
-          examId,
-          ocrStatus:     "pending",
+          rollNo, scriptKey, classId, course, examType, examId,
+          ocrStatus:     "processing",
           extractedText: "",
+          ocrError:      "",
         },
       },
       { upsert: true }
     );
 
-    
-    const extractedText = await extractPdfWithGroq(fileBuffer, rollNo);
+    // Step 1: Render PDF pages to real JPEG buffers
+    console.log(`  [BG OCR] Rendering PDF pages for ${rollNo}…`);
+    const pages = await pdfToJpegBuffers(fileBuffer);
+    console.log(`  [BG OCR] ${pages.length} page(s) rendered for ${rollNo}`);
 
-  
+    // Step 2: OCR each page with Groq vision
     const ocrPages = [];
-    const pageRegex = /===\s*Page\s*(\d+)\s*===\s*([\s\S]*?)(?====\s*Page\s*\d+\s*===|$)/gi;
-    let match;
-    while ((match = pageRegex.exec(extractedText)) !== null) {
-      ocrPages.push({
-        page: parseInt(match[1], 10),
-        text: match[2].trim() || "(blank)",
-      });
+    for (const { pageNum, buffer } of pages) {
+      console.log(`  [BG OCR] OCR page ${pageNum}/${pages.length} for ${rollNo}…`);
+      const text = await ocrPageWithGroq(buffer, pageNum, rollNo);
+      ocrPages.push({ page: pageNum, text });
     }
 
-    // If Groq didn't use page markers, store whole text as page 1
-    if (ocrPages.length === 0) {
-      ocrPages.push({ page: 1, text: extractedText });
-    }
+    // Step 3: Combine into full extractedText
+    const extractedText = ocrPages
+      .map((p) => `=== Page ${p.page} ===\n${p.text}`)
+      .join("\n\n");
 
     await Result.updateOne(
       { scriptKey },
@@ -134,7 +179,7 @@ async function runBackgroundOcr({
       }
     );
 
-    console.log(`✅ [BG OCR] Done: ${rollNo} — ${ocrPages.length} page(s) extracted`);
+    console.log(`✅ [BG OCR] Done: ${rollNo} — ${ocrPages.length} page(s), ${extractedText.length} chars`);
 
   } catch (err) {
     console.error(`❌ [BG OCR] Failed for ${scriptKey}:`, err.message);
@@ -151,12 +196,11 @@ async function runBackgroundOcr({
   }
 }
 
-// ── Resume pending OCR jobs (called from server.js on startup) ────────────────
-// Handles cases where server was restarted mid-OCR
+// ── Resume pending/failed OCR jobs on server startup ─────────────────────────
 export async function resumePendingOcr() {
   try {
     const pending = await Result.find({
-      ocrStatus: { $in: ["pending", "failed"] },
+      ocrStatus: { $in: ["pending", "processing", "failed"] },
     }).lean();
 
     if (!pending.length) {
@@ -164,18 +208,13 @@ export async function resumePendingOcr() {
       return;
     }
 
-    console.log(`🔄 [RESUME OCR] Found ${pending.length} pending/failed job(s) — resuming...`);
+    console.log(`🔄 [RESUME OCR] Found ${pending.length} job(s) — resuming…`);
 
-    // Run sequentially in background
     ;(async () => {
       for (const record of pending) {
         try {
-          // Re-download PDF from S3
           const s3Res = await s3.send(
-            new GetObjectCommand({
-              Bucket: process.env.S3_BUCKET,
-              Key:    record.scriptKey,
-            })
+            new GetObjectCommand({ Bucket: process.env.S3_BUCKET, Key: record.scriptKey })
           );
           const chunks = [];
           for await (const chunk of s3Res.Body) chunks.push(Buffer.from(chunk));
@@ -193,7 +232,6 @@ export async function resumePendingOcr() {
         } catch (err) {
           console.error(`❌ [RESUME OCR] Failed for ${record.scriptKey}:`, err.message);
         }
-        // Cooldown between scripts
         await new Promise((r) => setTimeout(r, 3000));
       }
       console.log("✅ [RESUME OCR] All pending jobs processed.");
@@ -213,71 +251,47 @@ router.post(
       const { course, examType, classId, examId } = req.body;
 
       if (!course || !examType || !classId || !examId) {
-        return res.status(400).json({
-          error: "course, examType, classId and examId are required.",
-        });
+        return res.status(400).json({ error: "course, examType, classId and examId are required." });
       }
-
       if (!req.files || req.files.length === 0) {
         return res.status(400).json({ error: "No files uploaded." });
       }
 
-      // Validate all files are PDFs before uploading anything
       for (const file of req.files) {
         const originalName = path.basename(file.originalname || "");
         const isPdf =
           file.mimetype === "application/pdf" ||
           originalName.toLowerCase().endsWith(".pdf");
-
         if (!isPdf) {
-          return res.status(400).json({
-            error: `Only PDF files are allowed: ${originalName}`,
-          });
+          return res.status(400).json({ error: `Only PDF files are allowed: ${originalName}` });
         }
       }
 
       const uploadedFiles = [];
       const ocrQueue      = [];
 
-      // ✅ Upload ALL files to S3 in parallel — fast, no timeout risk
       await Promise.all(
         req.files.map(async (file) => {
           const originalName = path.basename(file.originalname || "");
           const key = `${course}/${classId}/${examType}/answer-scripts/${originalName}`;
 
-          await s3.send(
-            new PutObjectCommand({
-              Bucket:      process.env.S3_BUCKET,
-              Key:         key,
-              Body:        file.buffer,
-              ContentType: "application/pdf",
-            })
-          );
+          await s3.send(new PutObjectCommand({
+            Bucket:      process.env.S3_BUCKET,
+            Key:         key,
+            Body:        file.buffer,
+            ContentType: "application/pdf",
+          }));
 
           console.log(`✅ S3 uploaded: ${key}`);
-
           const rollNo = path.parse(originalName).name;
           uploadedFiles.push(key);
-          ocrQueue.push({
-            fileBuffer: file.buffer,
-            scriptKey:  key,
-            rollNo,
-            classId,
-            course,
-            examType,
-            examId,
-          });
+          ocrQueue.push({ fileBuffer: file.buffer, scriptKey: key, rollNo, classId, course, examType, examId });
         })
       );
 
-      // ✅ Respond immediately — OCR runs in background
-      res.json({
-        message:      "Scripts uploaded successfully ✅",
-        uploadedFiles,
-        uploaded:     uploadedFiles,
-      });
+      res.json({ message: "Scripts uploaded successfully ✅", uploadedFiles, uploaded: uploadedFiles });
 
-      // ✅ Run OCR jobs SEQUENTIALLY — one at a time to prevent RAM spike
+      // Sequential — one script at a time to avoid RAM spike from canvas rendering
       ;(async () => {
         for (const item of ocrQueue) {
           try {
@@ -285,7 +299,6 @@ router.post(
           } catch (err) {
             console.error(`[BG OCR] Unhandled error for ${item.scriptKey}:`, err.message);
           }
-          // 3s cooldown between scripts for GC
           await new Promise((r) => setTimeout(r, 3000));
         }
         console.log(`✅ [BG OCR] All ${ocrQueue.length} script(s) processed`);
@@ -293,11 +306,41 @@ router.post(
 
     } catch (err) {
       console.error("Answer scripts upload error:", err.stack || err);
-      return res.status(500).json({
-        error: err.message || "Upload failed ❌",
-      });
+      return res.status(500).json({ error: err.message || "Upload failed ❌" });
     }
   }
 );
+
+// ── GET /api/uploadscript/ocr-status ─────────────────────────────────────────
+router.get("/ocr-status", async (req, res) => {
+  try {
+    const keys = (req.query.scriptKeys || "")
+      .split(",")
+      .map((k) => decodeURIComponent(k.trim()))
+      .filter(Boolean);
+
+    if (!keys.length) return res.json({ allDone: true, statuses: [] });
+
+    const records = await Result.find(
+      { scriptKey: { $in: keys } },
+      { scriptKey: 1, ocrStatus: 1 }
+    ).lean();
+
+    const statuses = keys.map((key) => {
+      const r = records.find((r) => r.scriptKey === key);
+      return { scriptKey: key, ocrStatus: r?.ocrStatus ?? "pending" };
+    });
+
+    const allDone = statuses.every(
+      (s) => s.ocrStatus === "done" || s.ocrStatus === "failed"
+    );
+
+    return res.json({ allDone, statuses });
+
+  } catch (err) {
+    console.error("OCR status check error:", err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
 
 export default router;
