@@ -291,7 +291,7 @@ const UploadScripts = () => {
                 </button>
                 <button
                   type="button"
-                  className="com-btn"
+                  className="com-btn view-btn"
                   onClick={(e) => { e.stopPropagation(); folderInputRef.current?.click(); }}
                 >
                   📁 Select Folder
