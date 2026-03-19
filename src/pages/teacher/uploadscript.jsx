@@ -197,15 +197,7 @@ const UploadScripts = () => {
 
       {/* Main */}
       <main className="main">
-        <div className="logout-container">
-          <button
-            className="com-btn logout-btn-top"
-            onClick={() => navigate("/evaluation")}
-          >
-            ↩ Back
-          </button>
-        </div>
-
+        
         {/* ── Success Screen ── */}
         {evalSuccess ? (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "70vh", gap: "16px", textAlign: "center" }}>
@@ -234,6 +226,14 @@ const UploadScripts = () => {
 
           /* ── Upload Screen ── */
           <div>
+            <div className="logout-container">
+              <button
+              className="com-btn logout-btn-top"
+              onClick={() => navigate("/evaluation")}
+              >
+                ↩ Back
+              </button>
+            </div>
             <h1 className="page-title">Upload <span>Answer Scripts</span></h1>
 
             {exam && (
