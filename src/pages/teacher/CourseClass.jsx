@@ -4,12 +4,13 @@ import { useNavigate } from "react-router-dom";
 import "../admin/AdminDashboard.css";
 
 const NAV_ITEMS = [
-  { label: "Dashboard", icon: "⊞", path: "/teacher" },
-  { label: "Evaluation", icon: "📋", path: "/evaluation"},
-  { label: "View Results", icon: "📊", path: "/view-mark" },
+  { label: "Dashboard",        icon: "⊞", path: "/teacher" },
+  { label: "My Classes",       icon: "🏫", path: "/teacher/classes" },
+  { label: "Evaluation",       icon: "📋", path: "/evaluation" },
+  { label: "View Results",     icon: "📊", path: "/view-mark" },
   { label: "Reference Answer", icon: "📖", path: "/reference-answer" },
-  { label: "Revaluation", icon: "🔄", path: "/revaluation" },
-  { label: "My Classes",icon:"🏫",path:"/courseclass", active: true},
+  { label: "Revaluation",      icon: "🔄", path: "/revaluation" },
+  { label: "My Classes",       icon: "🏫", path: "/courseclass", active: true },
 ];
 
 const TABS = ["Classes & Students", "Courses", "Exams"];
