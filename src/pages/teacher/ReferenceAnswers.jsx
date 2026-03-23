@@ -90,15 +90,7 @@ window.open(data.fileUrl, "_blank");
     <div className="container">
       <aside className="sidebar">
         <h2 className="logo">SAGE</h2>
-        <div className="user-info">
-          <div className="avatar">
-            {teacher?.name ? teacher.name.charAt(0).toUpperCase() : "T"}
-          </div>
-          <div className="user-details">
-            <h4>{teacher?.name || "Teacher"}</h4>
-            <p>Teacher</p>
-          </div>
-        </div>
+        
         <ul className="sidebar-cards">
           {NAV_ITEMS.map(({ label, icon, path, active }) => (
             <li
