@@ -13,6 +13,14 @@ const NAV_ITEMS = [
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
 const ReferenceAnswer = () => {
   const navigate = useNavigate();
+  
+  const [teacher] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("user")) || null;
+    } catch {
+      return null;
+    }
+  });
 
   const [classes, setClasses] = useState([]);
   const [courses, setCourses] = useState([]);
@@ -90,6 +98,16 @@ window.open(data.fileUrl, "_blank");
     <div className="container">
       <aside className="sidebar">
         <h2 className="logo">SAGE</h2>
+        
+        <div className="user-info">
+          <div className="avatar">
+            {teacher?.name ? teacher.name.charAt(0).toUpperCase() : "T"}
+          </div>
+          <div className="user-details">
+            <h4>{teacher?.name || "Teacher"}</h4>
+            <p>Teacher</p>
+          </div>
+        </div>
         
         <ul className="sidebar-cards">
           {NAV_ITEMS.map(({ label, icon, path, active }) => (
