@@ -147,7 +147,7 @@ const parseResultTableForDisplay = (resultTable) => {
     for (let i = 0; i < matches.length; i++) {
       const label    = matches[i][1].toUpperCase();
       const segStart = matches[i].index + matches[i][0].length;
-      const segEnd   = matches[i + 1]?.index ?? dataRow.lastIndexOf("|");
+const segEnd = matches[i + 1]?.index ?? dataRow.lastIndexOf("|", dataRow.lastIndexOf("|") - 1);
       const segment  = dataRow.slice(segStart, segEnd);
 
       // segment = " max | marks | justification (may contain |) "
