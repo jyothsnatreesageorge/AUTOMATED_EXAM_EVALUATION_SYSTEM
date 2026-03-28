@@ -23,7 +23,7 @@ const upload  = multer({ storage });
 // No evaluation here — evaluation is triggered from uploadscript.jsx
 router.post("/evaluation-materials", upload.any(), async (req, res) => {
   try {
-    const { course, examType, classId, examId } = req.body;
+    const { course, examType, classId, examId, evalType } = req.body;
 
     if (!course || !examType || !classId || !examId) {
       return res.status(400).json({
@@ -48,7 +48,7 @@ router.post("/evaluation-materials", upload.any(), async (req, res) => {
           continue; // skip answer_scripts or anything else
       }
 
-      const key = `${course}/${classId}/${examType}/${folder}/${file.originalname}`;
+      const key = `${course}/${classId}/${examType}/${evalType}/${folder}/${file.originalname}`;
 
       await s3.send(new PutObjectCommand({
         Bucket:      process.env.S3_BUCKET,
