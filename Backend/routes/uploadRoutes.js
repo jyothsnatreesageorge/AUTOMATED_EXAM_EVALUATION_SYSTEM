@@ -24,6 +24,7 @@ const upload  = multer({ storage });
 router.post("/evaluation-materials", upload.any(), async (req, res) => {
   try {
     const { course, examType, classId, examId, evalType } = req.body;
+    console.log("Backend received evalType:", evalType);
 
     if (!course || !examType || !classId || !examId) {
       return res.status(400).json({
