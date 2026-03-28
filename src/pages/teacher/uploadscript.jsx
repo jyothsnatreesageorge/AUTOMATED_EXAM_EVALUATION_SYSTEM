@@ -120,6 +120,8 @@ const UploadScripts = () => {
       formData.append("classId",   exam.classId);
       formData.append("examClass", exam.examClass ?? exam.classId);
       formData.append("examId",    exam._id);
+      formData.append("evalType", exam.evalType || "");
+
 
       const uploadRes = await fetch(
         `${API_BASE}/api/uploadscript/answer-scripts`,
