@@ -296,7 +296,7 @@ async function runEvaluationInBackground({
   classId, course, examType, evalType, force, scriptKeys, BUCKET,
 }) {
   try {
-    const basePrefix = `${course}/${classId}/${examType}`;
+    const basePrefix = `${course}/${classId}/${examType}/${evalType}`;
     const qpPrefix   = `${basePrefix}/question-paper/`;
     const msPrefix   = `${basePrefix}/marking-scheme/`;
     const refPrefix  = `${basePrefix}/reference-text/`;
