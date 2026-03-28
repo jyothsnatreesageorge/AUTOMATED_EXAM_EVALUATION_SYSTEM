@@ -278,7 +278,7 @@ async function generateReferenceAnswers(ai, course, classId, examType, qpKey, qp
 
   if (!finalText) throw new Error("Empty reference answer result from Gemini");
 
-  const s3Key = `${course}/${classId}/${examType}/reference-answers/reference.pdf`;
+  const s3Key = `${course}/${classId}/${examType}/${evalType}/reference-answers/reference.pdf`;
   const pdfBuffer = await textToPDFBuffer(finalText);
   await uploadToS3(BUCKET, s3Key, pdfBuffer, "application/pdf");
 
