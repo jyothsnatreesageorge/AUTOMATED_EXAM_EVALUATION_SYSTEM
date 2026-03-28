@@ -242,7 +242,7 @@ router.post(
   upload.array("answer_scripts", 50),
   async (req, res) => {
     try {
-      const { course, examType, classId, examId } = req.body;
+      const { course, examType, classId, examId, evalType } = req.body;
 
       if (!course || !examType || !classId || !examId) {
         return res.status(400).json({ error: "course, examType, classId and examId are required." });
@@ -267,7 +267,7 @@ router.post(
       await Promise.all(
         req.files.map(async (file) => {
           const originalName = path.basename(file.originalname || "");
-          const key = `${course}/${classId}/${examType}/answer-scripts/${originalName}`;
+          const key = `${course}/${classId}/${examType}/${evalType}/answer-scripts/${originalName}`;
 
           await s3.send(new PutObjectCommand({
             Bucket:      process.env.S3_BUCKET,
