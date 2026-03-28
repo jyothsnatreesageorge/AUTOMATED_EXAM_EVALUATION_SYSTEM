@@ -20,20 +20,14 @@ const ViewAnswerKey = () => {
   const [courses, setCourses] = useState([]);
 
   useEffect(() => {
-    const fetchCourses = async () => {
-      try {
-        const res = await fetch(
-          `${API_BASE}/api/students/courses/byclass/${user.classId}` // ✅ FIXED
-        );
-        const data = await res.json();
-        setCourses(Array.isArray(data.courses) ? data.courses : []);
-      } catch (err) {
-        console.log(err);
-      }
-    };
+  const storedUser = JSON.parse(localStorage.getItem("user"));
+  if (!storedUser?.classId) return;
 
-    if (user?.classId) fetchCourses(); // ✅ FIXED
-  }, [user?.classId]);
+  fetch(`${API_BASE}/api/students/courses/byclass/${storedUser.classId}`)
+    .then(r => r.json())
+    .then(d => setCourses(Array.isArray(d.courses) ? d.courses : []))
+    .catch(console.log);
+}, []); 
 
   const handleLogout = () => {
     localStorage.removeItem("token");
