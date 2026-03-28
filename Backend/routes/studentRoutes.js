@@ -13,11 +13,8 @@ const router = express.Router();
 /* =============================
         STUDENT LOGIN
 ============================= */
-
 router.post("/login", async (req, res) => {
-
   try {
-
     const { email, password } = req.body;
 
     console.log("Request body:", req.body);
@@ -35,6 +32,7 @@ router.post("/login", async (req, res) => {
     if (!isMatch) {
       return res.status(400).json({ message: "Invalid password" });
     }
+
     const token = jwt.sign(
       { id: student._id },
       process.env.JWT_SECRET,
@@ -45,28 +43,26 @@ router.post("/login", async (req, res) => {
       message: "Login successful",
       token,
       student: {
-        _id: student._id,
-        name: student.name,
-        email: student.email,
-        admNo: student.admNo,
-        rollNo: student.rollNo,
+        _id:       student._id,
+        name:      student.name,
+        email:     student.email,
+        admNo:     student.admNo,
+        rollNo:    student.rollNo,
         className: student.className,
-        classId: student.classId
-      }
+        classId:   student.classId,
+      },
     });
-
   } catch (error) {
-
     console.error(error);
     res.status(500).json({ message: "Server error" });
-
   }
-
 });
 
+/* =============================
+        STUDENT PROFILE
+============================= */
 router.get("/profile", async (req, res) => {
   try {
-
     const token = req.headers.authorization?.split(" ")[1];
 
     if (!token) {
@@ -74,16 +70,17 @@ router.get("/profile", async (req, res) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
     const student = await Student.findById(decoded.id).select("-password");
 
     res.json(student);
-
   } catch (error) {
     res.status(401).json({ message: "Unauthorized" });
   }
 });
-// ADD THIS BEFORE the existing /courses/:studentId route
+
+/* =============================
+   COURSES BY CLASS
+============================= */
 router.get("/courses/byclass/:classId", async (req, res) => {
   try {
     const { classId } = req.params;
@@ -96,24 +93,22 @@ router.get("/courses/byclass/:classId", async (req, res) => {
       .find({ classId: classDoc._id })
       .populate("courseId");
 
-    const courses = mappings.map(m => m.courseId).filter(Boolean);
+    const courses = mappings.map((m) => m.courseId).filter(Boolean);
     res.json({ courses });
-
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });
   }
 });
 
-
-// GET COURSES FOR STUDENT
+/* =============================
+   GET COURSES FOR STUDENT
+============================= */
 router.get("/courses/:studentId", async (req, res) => {
   try {
     const { studentId } = req.params;
 
-    const student = await Student.findOne({
-      rollNo: Number(studentId),
-    });
+    const student = await Student.findOne({ rollNo: Number(studentId) });
 
     if (!student) {
       return res.status(404).json({ message: "Student not found" });
@@ -125,7 +120,9 @@ router.get("/courses/:studentId", async (req, res) => {
       return res.status(404).json({ message: "Class not found" });
     }
 
-    const mappings = await CourseMapping.find({ classId: classDoc._id }).populate("courseId");
+    const mappings = await CourseMapping
+      .find({ classId: classDoc._id })
+      .populate("courseId");
 
     const courses = mappings.map((m) => m.courseId).filter(Boolean);
 
@@ -136,7 +133,12 @@ router.get("/courses/:studentId", async (req, res) => {
   }
 });
 
-// GET STUDENT RESULT
+/* =============================
+   GET STUDENT RESULT
+   Handles both resultTable formats:
+   Format A (data row repeats Q labels): | 61 | Q1 | 3 | 3 | Justification | Q2 | ...
+   Format B (data row has no Q labels):  | 10 | 1  | 3 | 3 | Justification | 2  | ...
+============================= */
 router.post("/result", async (req, res) => {
   try {
     const { rollNo, course, examType } = req.body;
@@ -157,37 +159,38 @@ router.post("/result", async (req, res) => {
     const splitRow = (row) =>
       row.split("|").map((c) => c.trim()).filter(Boolean);
 
-    const dataCells = splitRow(rows[2]);
+    const headerCells = splitRow(rows[0]);
+    const dataCells   = splitRow(rows[2]);
 
     const questions = [];
 
-    // Find where Q labels start
-    let startIndex = -1;
-    for (let i = 0; i < dataCells.length; i++) {
+    for (let i = 0; i < headerCells.length; i++) {
+      // Only process cells whose header is a Q label (Q1, Q2, ...)
+      if (!/^q\d+$/i.test(headerCells[i])) continue;
+
+      const label = headerCells[i].toUpperCase();
+
+      // Determine data offset:
+      // Format A — dataCells[i] repeats the Q label → values at i+1, i+2, i+3
+      // Format B — dataCells[i] is already the max marks → values at i, i+1, i+2
+      let dataStart;
       if (/^q\d+$/i.test(dataCells[i])) {
-        startIndex = i;
-        break;
+        dataStart = i + 1; // Format A
+      } else {
+        dataStart = i;     // Format B
       }
-    }
 
-    if (startIndex !== -1) {
-      // Groups of 4: Qn | Max | Marks | Justification
-      for (let i = startIndex; i < dataCells.length - 1; i += 4) {
-        const label = dataCells[i];
-        if (!/^q\d+$/i.test(label)) break;
+      const max    = parseFloat(dataCells[dataStart]);
+      const marks  = parseFloat(dataCells[dataStart + 1]);
+      const reason = dataCells[dataStart + 2] || "";
 
-        const max    = parseFloat(dataCells[i + 1]);
-        const marks  = parseFloat(dataCells[i + 2]);
-        const reason = dataCells[i + 3] || "";
-
-        if (!isNaN(max) && !isNaN(marks)) {
-          questions.push({
-            question: label.toUpperCase(),
-            maxMarks: max,
-            marks,
-            deductionReason: reason,
-          });
-        }
+      if (!isNaN(max) && !isNaN(marks)) {
+        questions.push({
+          question:        label,
+          maxMarks:        max,
+          marks,
+          deductionReason: reason,
+        });
       }
     }
 
@@ -195,11 +198,10 @@ router.post("/result", async (req, res) => {
       result: {
         ...result.toObject(),
         questions,
-        maxMarks: result.maxMarks,
+        maxMarks:   result.maxMarks,
         totalMarks: result.totalMarks,
       },
     });
-
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });
@@ -209,32 +211,22 @@ router.post("/result", async (req, res) => {
 /* =============================
       REQUEST REVALUATION
 ============================= */
-
 router.post("/revaluation", async (req, res) => {
-
   try {
-
     const { studentName, rollNo, classId, course, examType, studentReason } = req.body;
 
-    const existing = await Revaluation.findOne({
-      rollNo,
-      course,
-      examType
-    });
+    const existing = await Revaluation.findOne({ rollNo, course, examType });
 
     if (existing) {
-      return res.json({
-        message: "Revaluation already requested"
-      });
+      return res.json({ message: "Revaluation already requested" });
     }
 
-    const classDoc = await Class.findOne({ classId });
-
+    const classDoc  = await Class.findOne({ classId });
     const courseDoc = await Course.findOne({ courseName: course });
 
     const mapping = await CourseMapping.findOne({
-      classId: classDoc?._id,
-      courseId: courseDoc?._id
+      classId:  classDoc?._id,
+      courseId: courseDoc?._id,
     });
 
     const request = new Revaluation({
@@ -244,25 +236,16 @@ router.post("/revaluation", async (req, res) => {
       course,
       examType,
       studentReason,
-      teacherId: mapping?.teacherId || null
+      teacherId: mapping?.teacherId || null,
     });
 
     await request.save();
 
-    res.json({
-      message: "Revaluation request submitted"
-    });
-
+    res.json({ message: "Revaluation request submitted" });
   } catch (error) {
-
     console.error(error);
-
-    res.status(500).json({
-      message: "Server error"
-    });
-
+    res.status(500).json({ message: "Server error" });
   }
-
 });
 
 export default router;
