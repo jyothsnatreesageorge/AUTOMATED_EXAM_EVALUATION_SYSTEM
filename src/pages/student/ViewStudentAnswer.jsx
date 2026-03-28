@@ -8,7 +8,7 @@ const NAV_ITEMS = [
   { label: "View Answer Key", icon: "📖", path: "/student/answer-key", active: true },
   { label: "View Result", icon: "📊", path: "/student/result" },
 ];
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://automated-exam-evaluation-system.onrender.com";
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
 const ViewAnswerKey = () => {
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem("user"));
