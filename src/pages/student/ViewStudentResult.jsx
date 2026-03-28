@@ -236,61 +236,63 @@ const ViewResult = () => {
               </button>
             </div>
 
-            {/* ── Marks tab ── */}
-            {tab === "marks" && (
-              <>
-                <p className="vsr-section-label">Question-wise marks</p>
+{tab === "marks" && (
+  <>
+    <p className="vsr-section-label">Question-wise marks</p>
 
-                {headers.length > 0 ? (
-                  <div className="vsr-table-wrap">
-                    <table className="vsr-table">
-                      <thead>
-                        <tr>
-                          {headers.map((h, i) => (
-                            <th key={i} className="vsr-th">{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {dataRows.map((row, ri) => (
-                          <tr key={ri} className="vsr-tr">
-                            {row.map((cell, ci) => (
-                              <td key={ci} className="vsr-td">{cell}</td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <p className="vsr-empty">No result available.</p>
-                )}
+    {result?.questions?.length > 0 ? (
+      <div className="vsr-table-wrap">
+        <table className="vsr-table">
+          <thead>
+            <tr>
+              <th className="vsr-th">Q No</th>
+              <th className="vsr-th">Max Marks</th>
+              <th className="vsr-th">Marks Awarded</th>
+              <th className="vsr-th">Justification</th>
+            </tr>
+          </thead>
+          <tbody>
+            {result.questions.map((q, i) => (
+              <tr key={i} className="vsr-tr">
+                <td className="vsr-td">{q.question?.toUpperCase()}</td>
+                <td className="vsr-td">{q.max}</td>
+                <td className="vsr-td">{q.marks}</td>
+                <td className="vsr-td">{q.deductionReason || "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    ) : (
+      <p className="vsr-empty">No result available.</p>
+    )}
 
-                <div className="vsr-reval-row">
-                  {revalStatus !== "submitted" && (
-                    <button className="com-btn reval-btn" onClick={() => setShowRevalBox(true)}>
-                      Request Revaluation
-                    </button>
-                  )}
-                  {revalStatus === "submitted" && (
-                    <p className="vsr-reval-done">Revaluation Requested ✓</p>
-                  )}
-                  {showRevalBox && (
-                    <div className="vsr-reval-box">
-                      <textarea
-                        className="vsr-reval-textarea"
-                        placeholder="Enter reason for revaluation..."
-                        value={reason}
-                        onChange={(e) => setReason(e.target.value)}
-                      />
-                      <button className="com-btn" onClick={handleRequestReval}>
-                        Submit Request
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
+    {/* revaluation section stays unchanged */}
+    <div className="vsr-reval-row">
+      {revalStatus !== "submitted" && (
+        <button className="com-btn reval-btn" onClick={() => setShowRevalBox(true)}>
+          Request Revaluation
+        </button>
+      )}
+      {revalStatus === "submitted" && (
+        <p className="vsr-reval-done">Revaluation Requested ✓</p>
+      )}
+      {showRevalBox && (
+        <div className="vsr-reval-box">
+          <textarea
+            className="vsr-reval-textarea"
+            placeholder="Enter reason for revaluation..."
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+          />
+          <button className="com-btn" onClick={handleRequestReval}>
+            Submit Request
+          </button>
+        </div>
+      )}
+    </div>
+  </>
+)}
 
             {/* ── Extracted text tab ── */}
             {tab === "text" && (
