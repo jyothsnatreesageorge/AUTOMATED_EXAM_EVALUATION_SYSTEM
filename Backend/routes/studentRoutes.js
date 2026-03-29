@@ -10,12 +10,20 @@ import CourseMapping from "../models/CourseMapping.js";
 
 const router = express.Router();
 
+// ── auth middleware ───────────────────────────────────────────────────────────
+function auth(req, res, next) {
+  try {
+    const token = req.headers.authorization?.split(" ")[1];
+    if (!token) return res.status(401).json({ message: "No token provided." });
+    req.user = jwt.verify(token, process.env.JWT_SECRET);
+    next();
+  } catch {
+    res.status(401).json({ message: "Unauthorized" });
+  }
+}
+
 /* ===============================
    PARSE RESULT TABLE
-   Handles:
-   - Format A: data row repeats Q label → | 61 | Q1 | 3 | 3 | Justification | Q2 | ...
-   - Format B: data row skips Q label   → | 10 | 1  | 3 | 3 | Justification | 2  | ...
-   - Pipe characters INSIDE justification text (e.g. S→abAA|ab)
 =============================== */
 const parseResultTable = (resultTable) => {
   if (!resultTable || typeof resultTable !== "string") return [];
@@ -30,7 +38,6 @@ const parseResultTable = (resultTable) => {
   const headerRow = rows[0];
   const dataRow   = rows[2];
 
-  // Step 1: get Q labels in order from header
   const headerParts = headerRow.split("|").map((c) => c.trim());
   const qLabels = headerParts
     .filter((c) => /^q\d+$/i.test(c))
@@ -38,13 +45,10 @@ const parseResultTable = (resultTable) => {
 
   if (!qLabels.length) return [];
 
-  // Step 2: detect format — does data row repeat Q labels?
   const isFormatA = new RegExp(`\\|\\s*${qLabels[0]}\\s*\\|`, "i").test(dataRow);
-
   const questions = [];
 
   if (isFormatA) {
-    // Format A: split data row on "| Qn |" boundaries
     const splitPattern = new RegExp(`\\|\\s*(${qLabels.join("|")})\\s*\\|`, "gi");
     const matches = [...dataRow.matchAll(splitPattern)];
 
@@ -57,18 +61,15 @@ const parseResultTable = (resultTable) => {
       const firstPipe  = segment.indexOf("|");
       const secondPipe = segment.indexOf("|", firstPipe + 1);
 
-      const max    = parseFloat(segment.slice(0, firstPipe).trim());
-      const marks  = parseFloat(segment.slice(firstPipe + 1, secondPipe).trim());
+      const max     = parseFloat(segment.slice(0, firstPipe).trim());
+      const marks   = parseFloat(segment.slice(firstPipe + 1, secondPipe).trim());
       const rawJust = segment.slice(secondPipe + 1);
       const reason  = rawJust.replace(/\s*\|\s*$/, "").trim();
 
-      if (!isNaN(max) && !isNaN(marks)) {
+      if (!isNaN(max) && !isNaN(marks))
         questions.push({ question: label, maxMarks: max, marks, deductionReason: reason });
-      }
     }
-
   } else {
-    // Format B: header drives column positions, data has numbers not Q labels
     const qColIndices = qLabels.map((q) => ({
       label:    q,
       colIndex: headerParts.findIndex((c) => c.toUpperCase() === q),
@@ -86,9 +87,8 @@ const parseResultTable = (resultTable) => {
       const justCells    = dataCells.slice(colIndex + 3, nextColIndex);
       const reason       = justCells.join("|").trim();
 
-      if (!isNaN(max) && !isNaN(marks)) {
+      if (!isNaN(max) && !isNaN(marks))
         questions.push({ question: label, maxMarks: max, marks, deductionReason: reason });
-      }
     }
   }
 
@@ -135,16 +135,40 @@ router.post("/login", async (req, res) => {
 /* =============================
         STUDENT PROFILE
 ============================= */
-router.get("/profile", async (req, res) => {
+router.get("/profile", auth, async (req, res) => {
   try {
-    const token = req.headers.authorization?.split(" ")[1];
-    if (!token) return res.status(401).json({ message: "No token" });
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const student = await Student.findById(decoded.id).select("-password");
+    const student = await Student.findById(req.user.id).select("-password");
     res.json(student);
-  } catch (error) {
-    res.status(401).json({ message: "Unauthorized" });
+  } catch {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+/* =============================
+      CHANGE PASSWORD
+============================= */
+router.put("/change-password", auth, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword)
+      return res.status(400).json({ message: "All fields are required." });
+    if (newPassword.length < 6)
+      return res.status(400).json({ message: "Password must be at least 6 characters." });
+
+    const student = await Student.findById(req.user.id);
+    if (!student) return res.status(404).json({ message: "Student not found." });
+
+    const isMatch = await bcrypt.compare(currentPassword, student.password);
+    if (!isMatch)
+      return res.status(400).json({ message: "Current password is incorrect." });
+
+    student.password = await bcrypt.hash(newPassword, 10);
+    await student.save();
+
+    res.json({ message: "Password changed successfully!" });
+  } catch {
+    res.status(500).json({ message: "Server error" });
   }
 });
 
