@@ -66,18 +66,23 @@ const Profile = () => {
         }),
       });
       const data = await res.json();
-      if (res.ok) {
-        setPwStatus({ msg: "Password changed successfully!", type: "success" });
-        setPwForm({ current: "", newPw: "", confirm: "" });
-      } else {
-        setPwStatus({ msg: data.message || "Failed to change password.", type: "error" });
-      }
-    } catch {
-      setPwStatus({ msg: "Network error. Please try again.", type: "error" });
-    } finally {
-      setPwLoading(false);
-    }
-  };
+     if (res.ok) {
+  setPwStatus({ msg: "Password changed successfully! Redirecting to login...", type: "success" });
+  setPwForm({ current: "", newPw: "", confirm: "" });
+  setTimeout(() => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("role");
+    navigate("/login");
+  }, 2000);
+} else {
+  setPwStatus({ msg: data.message || "Failed to change password.", type: "error" });
+}
+} catch {
+  setPwStatus({ msg: "Network error. Please try again.", type: "error" });
+} finally {
+  setPwLoading(false);
+}
+};
 
   if (!user) return <p>Loading...</p>;
 
