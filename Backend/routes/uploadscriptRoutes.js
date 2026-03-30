@@ -1,15 +1,16 @@
 import express from "express";
 import multer from "multer";
 import path from "path";
-import { createRequire } from "module";
-import { PutObjectCommand, GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
-import Groq from "groq-sdk";
+import { PutObjectCommand, S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
+import { GoogleGenAI } from "@google/genai";
 import Result from "../models/Result.js";
+import {
+  getNextApiKey,
+  markKeyUsed,
+  markKeyFailed,
+} from "../utils/geminiKeyManager.js";
 
-const router  = express.Router();
-const require = createRequire(import.meta.url);
-
-// ── S3 client ─────────────────────────────────────────────────────────────────
+const router = express.Router();
 const s3 = new S3Client({
   region: process.env.AWS_REGION,
   credentials: {
@@ -18,225 +19,73 @@ const s3 = new S3Client({
   },
 });
 
-const storage = multer.memoryStorage();
-const upload  = multer({ storage });
+const upload = multer({ storage: multer.memoryStorage() });
 
-// ── pdfjs-dist v3 + canvas ────────────────────────────────────────────────────
-// IMPORTANT: package.json must pin "pdfjs-dist": "3.11.174"
-// v4+ removed /legacy/build/pdf.js — v3 is stable and works perfectly on Render
-const pdfjsLib = (() => {
-  const p = require("pdfjs-dist/legacy/build/pdf.js");
-  return p.default ?? p;
-})();
-const { createCanvas } = require("canvas");
-pdfjsLib.GlobalWorkerOptions.workerSrc = false;
+/* ── helpers ─────────────────────────────────────────────────────────────── */
 
-async function pdfToJpegBuffers(pdfBuffer) {
-  const data   = new Uint8Array(pdfBuffer);
-  const pdfDoc = await pdfjsLib.getDocument({ data }).promise;
-  const pages  = [];
-
-  for (let i = 1; i <= pdfDoc.numPages; i++) {
-    const page     = await pdfDoc.getPage(i);
-    const viewport = page.getViewport({ scale: 2.0 });
-    const canvas   = createCanvas(viewport.width, viewport.height);
-    const ctx      = canvas.getContext("2d");
-
-    await page.render({ canvasContext: ctx, viewport }).promise;
-
-    pages.push({
-      pageNum: i,
-      buffer:  canvas.toBuffer("image/jpeg", { quality: 0.92 }),
-    });
-  }
-
-  return pages;
+/** Convert a readable stream to a Buffer */
+async function streamToBuffer(stream) {
+  const chunks = [];
+  for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+  return Buffer.concat(chunks);
 }
 
-// ── Groq rate-limit helpers ───────────────────────────────────────────────────
-function parseGroqRetryDelay(errMessage) {
-  const secMatch = String(errMessage).match(/try again in ([\d.]+)s/i);
-  if (secMatch) {
-    const secs = parseFloat(secMatch[1]);
-    if (!isNaN(secs) && secs > 0) {
-      return Math.min(Math.ceil(secs + 2) * 1000, 2 * 60 * 60 * 1000);
-    }
-  }
-  return String(errMessage).includes("tokens per day") ? 5 * 60 * 1000 : 60 * 1000;
-}
+/**
+ * Run OCR on a single PDF buffer using Gemini.
+ * Retries automatically on a different key if the first key fails.
+ */
+async function extractTextWithGemini(pdfBuffer, maxRetries = 3) {
+  let lastError;
 
-function isGroqRateLimit(err) {
-  return (
-    err?.status === 429 ||
-    String(err?.message || "").includes("rate_limit_exceeded") ||
-    String(err?.message || "").includes("429")
-  );
-}
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    const keyObj = await getNextApiKey();
 
-// ── Groq Vision: OCR one real JPEG page ──────────────────────────────────────
-async function ocrPageWithGroq(jpegBuffer, pageNum, rollNo, maxRetries = 5) {
-  const client      = new Groq({ apiKey: process.env.GROQ_API_KEY });
-  const base64Image = jpegBuffer.toString("base64");
-
-  for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
     try {
-      const response = await client.chat.completions.create({
-        model:       "meta-llama/llama-4-scout-17b-16e-instruct",
-        max_tokens:  4096,
-        temperature: 0.1,
-        messages: [
+      const ai = new GoogleGenAI({ apiKey: keyObj.key }); // ✅ fixed constructor
+
+      const result = await ai.models.generateContent({     // ✅ fixed method
+        model: "gemini-2.5-flash",
+        contents: [
           {
-            role: "user",
-            content: [
+            parts: [
               {
-                type:      "image_url",
-                image_url: { url: `data:image/jpeg;base64,${base64Image}` },
+                inlineData: {
+                  mimeType: "application/pdf",
+                  data: pdfBuffer.toString("base64"),
+                },
               },
               {
-                type: "text",
-                text: `This is page ${pageNum} of a handwritten student answer sheet (Roll No: ${rollNo}).
-Transcribe ALL handwritten text exactly as written.
-Preserve question numbers, headings, and answer structure.
-If a section is blank or completely unreadable, write "(blank)".
-Output only the transcribed text — no preamble, no explanation.`,
+                text: `You are an OCR engine. Extract ALL handwritten and printed text from this answer script PDF exactly as written.
+
+RULES:
+- Preserve question numbers and structure (e.g. Q1, Q2, 1a, 1b).
+- Do NOT summarise, interpret, or correct anything.
+- Do NOT add any commentary or extra text.
+- Separate each page with: --- PAGE [n] ---
+- If a page is blank, write: --- PAGE [n] --- (blank)
+- Output plain text only.`,
               },
             ],
           },
         ],
       });
 
-      const text = response.choices?.[0]?.message?.content?.trim();
-      if (!text || text.length < 3) return "(blank)";
+      const text = result.text;                            // ✅ fixed response shape
+      await markKeyUsed(keyObj.label);
       return text;
 
     } catch (err) {
-      if (isGroqRateLimit(err) && attempt <= maxRetries) {
-        const waitMs = parseGroqRetryDelay(err.message);
-        const isTPD  = String(err.message).includes("tokens per day");
-        console.warn(
-          `  ⏳ [OCR] Groq ${isTPD ? "TPD" : "RPM"} limit — waiting ${Math.round(waitMs / 1000)}s (attempt ${attempt}/${maxRetries}) for ${rollNo} page ${pageNum}…`
-        );
-        await new Promise((r) => setTimeout(r, waitMs));
-        continue;
-      }
-      console.error(`  ❌ [OCR] Page ${pageNum} failed for ${rollNo}:`, err.message);
-      throw err;
+      console.error(`❌ FULL OCR ERROR (attempt ${attempt + 1}):`, err); // ✅ full error
+      await markKeyFailed(keyObj.label);
+      lastError = err;
     }
   }
+
+  throw new Error(`OCR failed after ${maxRetries} attempts: ${lastError?.message}`);
 }
 
-// ── Background OCR ────────────────────────────────────────────────────────────
-async function runBackgroundOcr({
-  fileBuffer, scriptKey, rollNo, classId, course, examType, examId,
-}) {
-  try {
-    console.log(`\n🔍 [BG OCR] Starting: ${scriptKey}`);
+/* ── POST /answer-scripts ────────────────────────────────────────────────── */
 
-    await Result.updateOne(
-      { scriptKey },
-      {
-        $set: {
-          rollNo, scriptKey, classId, course, examType, examId,
-          ocrStatus:     "processing",
-          extractedText: "",
-          ocrError:      "",
-        },
-      },
-      { upsert: true }
-    );
-
-    console.log(`  [BG OCR] Rendering PDF pages for ${rollNo}…`);
-    const pages = await pdfToJpegBuffers(fileBuffer);
-    console.log(`  [BG OCR] ${pages.length} page(s) rendered for ${rollNo}`);
-
-    const ocrPages = [];
-    for (const { pageNum, buffer } of pages) {
-      console.log(`  [BG OCR] OCR page ${pageNum}/${pages.length} for ${rollNo}…`);
-      const text = await ocrPageWithGroq(buffer, pageNum, rollNo);
-      ocrPages.push({ page: pageNum, text });
-    }
-
-    const extractedText = ocrPages
-      .map((p) => `=== Page ${p.page} ===\n${p.text}`)
-      .join("\n\n");
-
-    await Result.updateOne(
-      { scriptKey },
-      {
-        $set: {
-          extractedText,
-          ocrPages,
-          ocrStatus: "done",
-          ocrDoneAt: new Date(),
-          updatedAt: new Date(),
-        },
-      }
-    );
-
-    console.log(`✅ [BG OCR] Done: ${rollNo} — ${ocrPages.length} page(s), ${extractedText.length} chars`);
-
-  } catch (err) {
-    console.error(`❌ [BG OCR] Failed for ${scriptKey}:`, err.message);
-    await Result.updateOne(
-      { scriptKey },
-      {
-        $set: {
-          ocrStatus: "failed",
-          ocrError:  err.message,
-          updatedAt: new Date(),
-        },
-      }
-    ).catch(() => {});
-  }
-}
-
-// ── Resume pending/failed OCR jobs on server startup ─────────────────────────
-export async function resumePendingOcr() {
-  try {
-    const pending = await Result.find({
-      ocrStatus: { $in: ["pending", "processing", "failed"] },
-    }).lean();
-
-    if (!pending.length) {
-      console.log("✅ [RESUME OCR] No pending jobs.");
-      return;
-    }
-
-    console.log(`🔄 [RESUME OCR] Found ${pending.length} job(s) — resuming…`);
-
-    ;(async () => {
-      for (const record of pending) {
-        try {
-          const s3Res = await s3.send(
-            new GetObjectCommand({ Bucket: process.env.S3_BUCKET, Key: record.scriptKey })
-          );
-          const chunks = [];
-          for await (const chunk of s3Res.Body) chunks.push(Buffer.from(chunk));
-          const fileBuffer = Buffer.concat(chunks);
-
-          await runBackgroundOcr({
-            fileBuffer,
-            scriptKey: record.scriptKey,
-            rollNo:    record.rollNo,
-            classId:   record.classId,
-            course:    record.course,
-            examType:  record.examType,
-            examId:    record.examId,
-          });
-        } catch (err) {
-          console.error(`❌ [RESUME OCR] Failed for ${record.scriptKey}:`, err.message);
-        }
-        await new Promise((r) => setTimeout(r, 3000));
-      }
-      console.log("✅ [RESUME OCR] All pending jobs processed.");
-    })();
-
-  } catch (err) {
-    console.error("❌ [RESUME OCR] Error:", err.message);
-  }
-}
-
-// ── POST /api/uploadscript/answer-scripts ─────────────────────────────────────
 router.post(
   "/answer-scripts",
   upload.array("answer_scripts", 50),
@@ -244,67 +93,104 @@ router.post(
     try {
       const { course, examType, classId, examId, evalType } = req.body;
 
-      if (!course || !examType || !classId || !examId) {
-        return res.status(400).json({ error: "course, examType, classId and examId are required." });
-      }
-      if (!req.files || req.files.length === 0) {
+      if (!course || !examType || !classId || !examId || !evalType)
+        return res.status(400).json({
+          error: "course, examType, classId, examId and evalType are required.",
+        });
+      if (!req.files?.length)
         return res.status(400).json({ error: "No files uploaded." });
-      }
-
-      for (const file of req.files) {
-        const originalName = path.basename(file.originalname || "");
-        const isPdf =
-          file.mimetype === "application/pdf" ||
-          originalName.toLowerCase().endsWith(".pdf");
-        if (!isPdf) {
-          return res.status(400).json({ error: `Only PDF files are allowed: ${originalName}` });
-        }
-      }
 
       const uploadedFiles = [];
-      const ocrQueue      = [];
 
       await Promise.all(
         req.files.map(async (file) => {
           const originalName = path.basename(file.originalname || "");
-          const key = `${course}/${classId}/${examType}/${evalType}/answer-scripts/${originalName}`;
+          if (!originalName.toLowerCase().endsWith(".pdf"))
+            throw new Error(`Only PDF files are allowed: ${originalName}`);
 
-          await s3.send(new PutObjectCommand({
-            Bucket:      process.env.S3_BUCKET,
-            Key:         key,
-            Body:        file.buffer,
-            ContentType: "application/pdf",
-          }));
-
-          console.log(`✅ S3 uploaded: ${key}`);
+          const key    = `${course}/${classId}/${examType}/${evalType}/answer-scripts/${originalName}`;
           const rollNo = path.parse(originalName).name;
+
+          /* 1. Upload PDF to S3 */
+          await s3.send(
+            new PutObjectCommand({
+              Bucket:      process.env.S3_BUCKET,
+              Key:         key,
+              Body:        file.buffer,
+              ContentType: "application/pdf",
+            })
+          );
+          console.log(`✅ S3 uploaded: ${key}`);
+
+          /* 2. Create/update Result record — mark OCR as pending */
+          await Result.updateOne(
+            { scriptKey: key },
+            {
+              $set: {
+                rollNo, scriptKey: key,
+                classId, course, examType, examId, evalType,
+                ocrStatus: "pending",
+                ocrError:  "",
+              },
+            },
+            { upsert: true }
+          );
+
           uploadedFiles.push(key);
-          ocrQueue.push({ fileBuffer: file.buffer, scriptKey: key, rollNo, classId, course, examType, examId });
+
+          /* 3. Copy buffer before setImmediate — multer may reuse it */
+          const pdfBuffer = Buffer.from(file.buffer); // ✅ safe copy
+
+          /* 4. Run OCR asynchronously — don't block the upload response */
+          setImmediate(async () => {
+            try {
+              console.log(`🔍 Starting OCR for: ${key}`);
+              const extractedText = await extractTextWithGemini(pdfBuffer);
+
+              await Result.updateOne(
+                { scriptKey: key },
+                {
+                  $set: {
+                    extractedText,
+                    ocrStatus: "done",
+                    ocrError:  "",
+                    ocrDoneAt: new Date(),
+                    updatedAt: new Date(),
+                  },
+                }
+              );
+              console.log(`✅ OCR done: ${key}`);
+            } catch (ocrErr) {
+              console.error(`❌ OCR failed for ${key}:`, ocrErr); // ✅ full error object
+              await Result.updateOne(
+                { scriptKey: key },
+                {
+                  $set: {
+                    ocrStatus: "failed",
+                    ocrError:  ocrErr.message,
+                    updatedAt: new Date(),
+                  },
+                }
+              );
+            }
+          });
         })
       );
 
-      res.json({ message: "Scripts uploaded successfully ✅", uploadedFiles, uploaded: uploadedFiles });
-
-      ;(async () => {
-        for (const item of ocrQueue) {
-          try {
-            await runBackgroundOcr(item);
-          } catch (err) {
-            console.error(`[BG OCR] Unhandled error for ${item.scriptKey}:`, err.message);
-          }
-          await new Promise((r) => setTimeout(r, 3000));
-        }
-        console.log(`✅ [BG OCR] All ${ocrQueue.length} script(s) processed`);
-      })();
-
+      res.json({
+        message:      "Scripts uploaded successfully. OCR running in background ✅",
+        uploadedFiles,
+        uploaded:     uploadedFiles,
+      });
     } catch (err) {
-      console.error("Answer scripts upload error:", err.stack || err);
+      console.error("Upload error:", err);
       return res.status(500).json({ error: err.message || "Upload failed ❌" });
     }
   }
 );
 
-// ── GET /api/uploadscript/ocr-status ─────────────────────────────────────────
+/* ── GET /ocr-status ─────────────────────────────────────────────────────── */
+
 router.get("/ocr-status", async (req, res) => {
   try {
     const keys = (req.query.scriptKeys || "")
@@ -316,23 +202,23 @@ router.get("/ocr-status", async (req, res) => {
 
     const records = await Result.find(
       { scriptKey: { $in: keys } },
-      { scriptKey: 1, ocrStatus: 1 }
+      { scriptKey: 1, ocrStatus: 1, ocrError: 1 }
     ).lean();
 
     const statuses = keys.map((key) => {
       const r = records.find((r) => r.scriptKey === key);
-      return { scriptKey: key, ocrStatus: r?.ocrStatus ?? "pending" };
+      return {
+        scriptKey: key,
+        ocrStatus: r?.ocrStatus ?? "pending",
+        ocrError:  r?.ocrError  ?? "",
+      };
     });
 
-    const allDone = statuses.every(
-      (s) => s.ocrStatus === "done" || s.ocrStatus === "failed"
-    );
+    const allDone = statuses.every((s) => s.ocrStatus === "done" || s.ocrStatus === "failed");
 
     return res.json({ allDone, statuses });
-
   } catch (err) {
-    console.error("OCR status check error:", err.message);
-    return res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
