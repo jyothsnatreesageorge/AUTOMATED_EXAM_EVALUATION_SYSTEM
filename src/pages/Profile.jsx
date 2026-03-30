@@ -147,7 +147,7 @@ const Profile = () => {
           {/* Toggle Button */}
           <div style={{ marginTop: "20px" }}>
             <button
-              className="com-btn"
+              className="tm-btn tm-delete-btn"
               onClick={() => {
                 setShowChangePw((v) => !v);
                 setPwStatus({ msg: "", type: "" });
