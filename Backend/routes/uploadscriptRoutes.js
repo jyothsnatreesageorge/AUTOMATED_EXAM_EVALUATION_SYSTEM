@@ -42,9 +42,32 @@ async function extractTextWithGemini(pdfBuffer, maxRetries = 3) {
       await markKeyUsed(keyObj.label);
       return result.text;
     } catch (err) {
-      await markKeyFailed(keyObj.label);
+      const isQuota = err?.message?.includes("429") ||
+                      err?.message?.includes("RESOURCE_EXHAUSTED") ||
+                      err?.message?.includes("quota");
+      const isInvalid = err?.message?.includes("INVALID_ARGUMENT") ||
+                        err?.message?.includes("API_KEY_INVALID");
+
+      if (isQuota || isInvalid) {
+        await markKeyFailed(keyObj.label, isQuota);
+      }
+      // For other errors (network, timeout) — don't penalise the key
+
+      console.error(`❌ OCR attempt ${attempt + 1} failed:`, err.message);
       lastError = err;
+
+      // Wait if quota hit before retrying with next key
+      if (isQuota) {
+        const retryMatch = err.message?.match(/retry in ([\d.]+)s/i);
+        const waitMs     = retryMatch ? parseFloat(retryMatch[1]) * 1000 : 65_000;
+        console.log(`⏳ Waiting ${waitMs / 1000}s before retry...`);
+        await new Promise(r => setTimeout(r, waitMs));
+      }
     }
+  }
+
+  throw new Error(`OCR failed after ${maxRetries} attempts: ${lastError?.message}`);
+}
   }
   throw new Error(`OCR failed after ${maxRetries} attempts: ${lastError?.message}`);
 }
