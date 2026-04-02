@@ -13,9 +13,6 @@ import {
   textToPDFBuffer, REFERENCE_PROMPT,
 } from "../utils/evalHelpers.js";
 
-const MONGO_URI = process.env.MONGO_URI;
-if (!MONGO_URI) throw new Error("❌ Missing MONGO_URI in .env");
-
 const BUCKET = process.env.S3_BUCKET;
 const MODEL  = "gemini-2.5-flash";
 
@@ -46,21 +43,20 @@ async function generateReferenceAnswers(
   }
   if (!finalText) throw new Error("Empty reference answer from Gemini");
 
-  const s3Key = `${course}/${classId}/${examType}/${evalType}/reference-answers/reference.pdf`;
+  const s3Key  = `${course}/${classId}/${examType}/${evalType}/reference-answers/reference.pdf`;
   const pdfBuf = await textToPDFBuffer(finalText);
   await uploadToS3(BUCKET, s3Key, pdfBuf, "application/pdf");
 
   return await ReferenceAnswer.findOneAndUpdate(
-  { course, classId, examType, evalType },
-  { course, classId, examType, evalType, pdfLink: s3Key, status: false },
-  { upsert: true, new: true }
-);
+    { course, classId, examType, evalType },
+    { course, classId, examType, evalType, pdfLink: s3Key, status: false },
+    { upsert: true, new: true }
+  );
 }
 
 /* ── Main worker logic ───────────────────────────────────────────────────── */
-function startWorker() {
+export function startWorker() {
 
-  /* Process ONE paper at a time (concurrency: 1) */
   evalQueue.process(1, async (job) => {
     console.log("🔄 [WORKER] Job received:", job.data.scriptKey);
 
@@ -77,8 +73,7 @@ function startWorker() {
       return { skipped: true, rollNo };
     }
 
-    // Download only what this paper needs
-   const basePrefix = `${course}/${classId}/${examType}/${evalType}`;
+    const basePrefix = `${course}/${classId}/${examType}/${evalType}`;
     const [qpList, msList] = await Promise.all([
       listPdfsS3(BUCKET, `${basePrefix}/question-paper/`),
       listPdfsS3(BUCKET, `${basePrefix}/marking-scheme/`),
@@ -113,15 +108,18 @@ function startWorker() {
           parts: [{ inlineData: { data: msBytes.toString("base64"), mimeType: guessMime(msList[0]) } }],
         });
       }
+
+      // ✅ Always send raw PDF — OCR text is supplementary only
+      contents.push({
+        role: "user",
+        parts: [{ inlineData: { data: scriptBytes.toString("base64"), mimeType: guessMime(scriptKey) } }],
+      });
+
+      // ✅ Also attach OCR text if available — gives Gemini better accuracy
       if (hasOcr) {
         contents.push({
           role: "user",
-          parts: [{ text: `Student Answer Sheet (Roll No: ${rollNo}):\n\n${ocrRecord.extractedText}` }],
-        });
-      } else {
-        contents.push({
-          role: "user",
-          parts: [{ inlineData: { data: scriptBytes.toString("base64"), mimeType: guessMime(scriptKey) } }],
+          parts: [{ text: `Extracted text for reference (Roll No: ${rollNo}):\n\n${ocrRecord.extractedText}` }],
         });
       }
 
@@ -160,102 +158,14 @@ function startWorker() {
         { upsert: true }
       );
 
-      // Free buffers explicitly
+      // Free buffers
       qpBytes.fill(0);
       scriptBytes.fill(0);
       if (msBytes) msBytes.fill(0);
 
       job.progress(100);
       console.log(`✅ [WORKER] Done: rollNo=${rollNo} | ${totalMarks}/${maxMarks}`);
-      await new Promise(r => setTimeout(r, 3000));
 
-return { rollNo, totalMarks, maxMarks };
-
-      // Generate reference answer only if not already created and all papers done
+      // ✅ Generate reference answer after ALL papers done
       const allRows      = await MarkMatrix.find({ classId, course, examType }, { status: 1 }).lean();
       const stillPending = allRows.some((r) => r.status === "pending");
-
-      if (!stillPending) {
-        try {
-          const refExists = await ReferenceAnswer.findOne({ course, classId, examType }).lean();
-          if (refExists?.pdfLink) {
-            console.log("⏭ [WORKER] Reference answer already exists — skipping");
-          } else {
-            console.log("📝 [WORKER] All papers done — generating reference answer");
-            const [freshQp, freshMs] = await Promise.all([
-              downloadFromS3(BUCKET, qpList[0]),
-              msList[0] ? downloadFromS3(BUCKET, msList[0]) : Promise.resolve(null),
-            ]);
-            const refKeyObj = await getNextApiKey();
-            const refAi     = new GoogleGenAI({ apiKey: refKeyObj.key });
-           await generateReferenceAnswers(
-  refAi, course, classId, examType, evalType,   // ← add evalType
-  qpList[0], freshQp, msList[0], freshMs
-);
-            await markKeyUsed(refKeyObj.label);
-            console.log("✅ [WORKER] Reference answer generated");
-          }
-        } catch (refErr) {
-          console.error("❌ [WORKER] Reference answer generation failed:", refErr?.message);
-        }
-      }
-
-      return { rollNo, totalMarks, maxMarks };
-
-    } catch (err) {
-      const isQuota = err?.message?.includes("429") ||
-                      err?.message?.includes("RESOURCE_EXHAUSTED") ||
-                      err?.message?.includes("quota");
-      const isInvalid = err?.message?.includes("INVALID_ARGUMENT") ||
-                        err?.message?.includes("API_KEY_INVALID");
-
-      if (isQuota || isInvalid) {
-        await markKeyFailed(keyObj.label, isQuota);
-      }
-
-      await MarkMatrix.updateOne(
-        { scriptKey },
-        {
-          $set: {
-            rollNo, scriptKey, classId, course, examType,
-            resultTable: "", status: "failed", error: err.message,
-          },
-        },
-        { upsert: true }
-      );
-
-      throw err; // Bull retries automatically
-    }
-
-      await MarkMatrix.updateOne(
-        { scriptKey },
-        {
-          $set: {
-            rollNo, scriptKey, classId, course, examType,
-            resultTable: "", status: "failed", error: err.message,
-          },
-        },
-        { upsert: true }
-      );
-
-      throw err; // Bull retries automatically
-    }
-  });
-
-  evalQueue.on("completed", (job, result) =>
-    console.log(`✅ Queue job ${job.id} completed:`, result)
-  );
-  evalQueue.on("failed", (job, err) =>
-    console.error(`❌ Queue job ${job.id} failed (attempt ${job.attemptsMade}):`, err.message)
-  );
-  evalQueue.on("stalled", (job) =>
-    console.warn(`⚠️ Queue job ${job.id} stalled — will retry`)
-  );
-  evalQueue.on("error",   (err)   => console.error("❌ [WORKER] Queue error:", err.message));
-  evalQueue.on("waiting", (jobId) => console.log("⏳ [WORKER] Job waiting:", jobId));
-  evalQueue.on("active",  (job)   => console.log("🔄 [WORKER] Job active:", job.id));
-
-  console.log("🟢 Eval worker started — waiting for jobs...");
-}
-
-export { startWorker };
