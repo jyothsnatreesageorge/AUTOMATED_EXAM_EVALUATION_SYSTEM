@@ -21,7 +21,6 @@ import resultRoutes from "./routes/resultRoutes.js";
 
 const app = express();
 
-// ── CORS — manual middleware, no package needed, works on all Express versions
 const ALLOWED_ORIGINS = [
   "https://smartautomatedgradingengine.vercel.app",
   "http://localhost:5173",
@@ -36,23 +35,20 @@ app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   res.setHeader("Access-Control-Allow-Credentials", "true");
-
-  // Handle preflight requests
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(204);
-  }
+  if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
 });
 
 app.use(express.json());
 
-// ── Health check ──────────────────────────────────────────────────────────────
-app.get("/api/health", (req, res) => {
-  res.json({ ok: true });
-});
+app.get("/api/health", (req, res) => res.json({ ok: true }));
 
-// ── Connect DB ────────────────────────────────────────────────────────────────
+// ── Connect DB then start worker and server ───────────────────────────────────
 await connectDB();
+
+// ✅ Start eval worker inside the same process
+startWorker();
+console.log("🟢 Eval worker started");
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 app.use("/api/courses",        courseRoutes);
