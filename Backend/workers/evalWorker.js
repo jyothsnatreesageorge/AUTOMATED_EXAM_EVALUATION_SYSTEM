@@ -202,7 +202,7 @@ return { rollNo, totalMarks, maxMarks };
 
       return { rollNo, totalMarks, maxMarks };
 
-    } } catch (err) {
+    } catch (err) {
       const isQuota = err?.message?.includes("429") ||
                       err?.message?.includes("RESOURCE_EXHAUSTED") ||
                       err?.message?.includes("quota");
