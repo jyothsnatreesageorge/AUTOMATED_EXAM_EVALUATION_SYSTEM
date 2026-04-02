@@ -234,13 +234,4 @@ function startWorker() {
   console.log("🟢 Eval worker started — waiting for jobs...");
 }
 
-/* ── Connect MongoDB first, then start worker ────────────────────────────── */
-mongoose.connect(MONGO_URI)
-  .then(() => {
-    console.log("✅ [WORKER] MongoDB connected");
-    startWorker();
-  })
-  .catch((err) => {
-    console.error("❌ [WORKER] MongoDB connection failed:", err.message);
-    process.exit(1);
-  });
+export { startWorker };
