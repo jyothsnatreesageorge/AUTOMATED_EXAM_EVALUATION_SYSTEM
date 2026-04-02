@@ -15,7 +15,6 @@ const s3 = new S3Client({
   },
 });
 
-// ✅ Accept up to 15 files per batch (frontend sends 10, give headroom)
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024, files: 15 },
@@ -23,9 +22,10 @@ const upload = multer({
     cb(null, file.originalname.toLowerCase().endsWith(".pdf")),
 });
 
-/* ── OCR helper (unchanged) ──────────────────────────────────────────────── */
+/* ── OCR helper ──────────────────────────────────────────────────────────── */
 async function extractTextWithGemini(pdfBuffer, maxRetries = 3) {
   let lastError;
+
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     const keyObj = await getNextApiKey();
     try {
@@ -41,6 +41,7 @@ async function extractTextWithGemini(pdfBuffer, maxRetries = 3) {
       });
       await markKeyUsed(keyObj.label);
       return result.text;
+
     } catch (err) {
       const isQuota = err?.message?.includes("429") ||
                       err?.message?.includes("RESOURCE_EXHAUSTED") ||
@@ -51,12 +52,10 @@ async function extractTextWithGemini(pdfBuffer, maxRetries = 3) {
       if (isQuota || isInvalid) {
         await markKeyFailed(keyObj.label, isQuota);
       }
-      // For other errors (network, timeout) — don't penalise the key
 
       console.error(`❌ OCR attempt ${attempt + 1} failed:`, err.message);
       lastError = err;
 
-      // Wait if quota hit before retrying with next key
       if (isQuota) {
         const retryMatch = err.message?.match(/retry in ([\d.]+)s/i);
         const waitMs     = retryMatch ? parseFloat(retryMatch[1]) * 1000 : 65_000;
@@ -64,21 +63,17 @@ async function extractTextWithGemini(pdfBuffer, maxRetries = 3) {
         await new Promise(r => setTimeout(r, waitMs));
       }
     }
-  }
+  }                                                              // ← closes for loop
 
   throw new Error(`OCR failed after ${maxRetries} attempts: ${lastError?.message}`);
-}
-  }
-  throw new Error(`OCR failed after ${maxRetries} attempts: ${lastError?.message}`);
-}
+}                                                                // ← closes function — only once
 
-/* ── Process files one-by-one (sequential = low memory) ─────────────────── */
+/* ── Process single file ─────────────────────────────────────────────────── */
 async function processFile(file, { course, classId, examType, examId, evalType }) {
   const originalName = path.basename(file.originalname);
   const key    = `${course}/${classId}/${examType}/${evalType}/answer-scripts/${originalName}`;
   const rollNo = path.parse(originalName).name;
 
-  // 1. Upload to S3
   await s3.send(new PutObjectCommand({
     Bucket:      process.env.S3_BUCKET,
     Key:         key,
@@ -86,28 +81,23 @@ async function processFile(file, { course, classId, examType, examId, evalType }
     ContentType: "application/pdf",
   }));
 
-  // 2. Save to DB as pending
   await Result.updateOne(
     { scriptKey: key },
     { $set: { rollNo, scriptKey: key, classId, course, examType, examId, evalType, ocrStatus: "pending", ocrError: "" } },
     { upsert: true }
   );
 
-  // 3. Keep buffer copy, then free original
   const pdfBuffer = Buffer.from(file.buffer);
-  file.buffer = null; // ✅ free memory immediately
+  file.buffer = null;
 
-  // 4. Queue OCR — staggered to avoid API key storm
   return { key, pdfBuffer, rollNo };
 }
 
-/* ── OCR queue — runs with concurrency 3 ────────────────────────────────── */
-// In uploadscript route — replace runOcrQueue
-
+/* ── OCR queue ───────────────────────────────────────────────────────────── */
 async function runOcrQueue(items) {
-  const CONCURRENCY   = 2;          // max parallel OCR calls
-  const DELAY_MS      = 3000;       // 3 second gap between each call
-  const queue         = [...items];
+  const CONCURRENCY = 2;
+  const DELAY_MS    = 3000;
+  const queue       = [...items];
 
   const worker = async () => {
     while (queue.length) {
@@ -127,12 +117,10 @@ async function runOcrQueue(items) {
           { $set: { ocrStatus: "failed", ocrError: err.message } }
         );
       }
-      // ✅ Wait between each call — prevents quota storm
       await new Promise(r => setTimeout(r, DELAY_MS));
     }
   };
 
-  // Run with limited concurrency
   await Promise.all(Array.from({ length: CONCURRENCY }, worker));
 }
 
@@ -148,21 +136,18 @@ router.post("/answer-scripts", upload.array("answer_scripts", 15), async (req, r
 
     const meta = { course, examType, classId, examId, evalType };
 
-    // ✅ Process files sequentially — low memory, no parallel RAM spike
     const ocrItems = [];
     for (const file of req.files) {
       const item = await processFile(file, meta);
       ocrItems.push(item);
     }
 
-    // ✅ Respond immediately — don't make client wait for OCR
     res.json({
-      message:      `${ocrItems.length} scripts uploaded. OCR running in background ✅`,
-      uploaded:     ocrItems.map(i => i.key),
+      message:       `${ocrItems.length} scripts uploaded. OCR running in background ✅`,
+      uploaded:      ocrItems.map(i => i.key),
       uploadedFiles: ocrItems.map(i => i.key),
     });
 
-    // ✅ OCR runs AFTER response with controlled concurrency
     runOcrQueue(ocrItems).catch(err =>
       console.error("❌ OCR queue error:", err.message)
     );
@@ -173,7 +158,7 @@ router.post("/answer-scripts", upload.array("answer_scripts", 15), async (req, r
   }
 });
 
-/* ── GET /ocr-status (unchanged) ─────────────────────────────────────────── */
+/* ── GET /ocr-status ─────────────────────────────────────────────────────── */
 router.get("/ocr-status", async (req, res) => {
   try {
     const keys = (req.query.scriptKeys || "")
@@ -190,7 +175,10 @@ router.get("/ocr-status", async (req, res) => {
       return { scriptKey: key, ocrStatus: r?.ocrStatus ?? "pending", ocrError: r?.ocrError ?? "" };
     });
 
-    res.json({ allDone: statuses.every(s => s.ocrStatus === "done" || s.ocrStatus === "failed"), statuses });
+    res.json({
+      allDone: statuses.every(s => s.ocrStatus === "done" || s.ocrStatus === "failed"),
+      statuses,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
