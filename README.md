@@ -31,6 +31,8 @@ The Smart Automated Grading Engine is a full-stack web application designed to s
 
 * Gemini API (for OCR extraction and evaluation)
 * AWS S3 (for file storage)
+* Render
+* Vercel
 
 ## System Architecture
 
@@ -42,14 +44,10 @@ The system follows a client-server architecture:
 4. Extracted text is passed to an AI model for evaluation.
 5. Results are stored in the database and displayed to the user.
 
-## Installation and Setup
-
-### Prerequisites
-
-* Node.js (v14 or above)
-* MongoDB
-* AWS account (for S3 bucket)
-
+## Deployement
+The system is deployed using Vercel and Render.
+The deployed link is given below
+smartautomatedgradingengine.vercel.app
 
 ## Advantages
 
