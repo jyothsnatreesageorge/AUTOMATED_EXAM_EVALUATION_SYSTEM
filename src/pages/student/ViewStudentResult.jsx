@@ -285,7 +285,7 @@ const ViewResult = () => {
             value={reason}
             onChange={(e) => setReason(e.target.value)}
           />
-          <button className="com-btn" onClick={handleRequestReval}>
+          <button className="com-btn reval-btn" onClick={handleRequestReval}>
             Submit Request
           </button>
         </div>
