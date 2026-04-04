@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import "../admin/AdminDashboard.css";
-import { useEvalStatus } from "./useEvalStatus";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 const BATCH_SIZE = 10;
@@ -53,13 +52,7 @@ const UploadScripts = () => {
   const folderInputRef = useRef(null);
 
   const exam = location.state?.exam ?? null;
-const [evalStarted, setEvalStarted] = useState(false);
-const { status } = useEvalStatus({
-  classId: exam?.classId,
-  course: exam?.course,
-  examType: exam?.examType,
-  enabled: evalStarted,
-});
+
   /* ── Load teacher from localStorage ── */
   useEffect(() => {
     const stored = JSON.parse(localStorage.getItem("user") || "null");
@@ -172,7 +165,6 @@ const { status } = useEvalStatus({
 
       /* Step 3: Immediately show success — backend evaluates independently */
       setPhase("done");
-         setEvalStarted(true); // ← ADD THIS LINE
 
     } catch (err) {
       console.error(err);
@@ -251,46 +243,20 @@ const { status } = useEvalStatus({
                 maxWidth: 440,
               }}
             >
-              {/* Live evaluation status */}
-              {status && status.pending > 0 && (
-                <>
-                  <p style={{ margin: 0, fontSize: 15, color: "var(--color-text-primary)" }}>
-                    ⚙️ <strong>Evaluation running…</strong>
-                  </p>
-                  <p style={{ margin: "6px 0 8px", fontSize: 13, color: "var(--color-text-secondary)" }}>
-                    {status.done} of {status.total} papers done
-                  </p>
-                  {/* Progress bar */}
-                  <div style={{ background: "var(--color-border-primary)", borderRadius: 4, height: 8 }}>
-                    <div style={{
-                      width: `${(status.done / status.total) * 100}%`,
-                      background: "var(--color-primary, #6366f1)",
-                      borderRadius: 4, height: "100%",
-                      transition: "width 0.4s ease",
-                    }} />
-                  </div>
-                </>
-              )}
-
-              {/* All done */}
-              {status && status.pending === 0 && (
-                <p style={{ margin: 0, fontSize: 15, color: "var(--color-text-primary)" }}>
-                  {status.failed === 0
-                    ? `✅ All ${status.total} papers evaluated successfully!`
-                    : `⚠️ Done — ${status.done} evaluated, ${status.failed} failed`}
-                </p>
-              )}
-
-              {/* Before first poll result */}
-              {!status && (
-                <p style={{ margin: 0, fontSize: 15, color: "var(--color-text-primary)" }}>
-                  ⚙️ <strong>Evaluation is running in the background.</strong>
-                </p>
-              )}
-
-              <p style={{ margin: "8px 0 0", color: "var(--color-text-secondary)", fontSize: 13, lineHeight: 1.6 }}>
+              <p style={{ margin: 0, fontSize: 15, color: "var(--color-text-primary)" }}>
+                ⚙️ <strong>Evaluation is running in the background.</strong>
+              </p>
+              <p
+                style={{
+                  margin: "8px 0 0",
+                  color: "var(--color-text-secondary)",
+                  fontSize: 13,
+                  lineHeight: 1.6,
+                }}
+              >
                 {uploadedCount} script{uploadedCount !== 1 ? "s" : ""} queued for{" "}
-                <strong>{exam?.course}</strong>. You can safely leave this page.
+                <strong>{exam?.course}</strong>. Check results in a few minutes
+                — you can safely leave this page.
               </p>
             </div>
 
