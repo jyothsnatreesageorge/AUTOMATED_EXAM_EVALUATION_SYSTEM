@@ -16,7 +16,9 @@ const s3 = new S3Client({
 
 const storage = multer.memoryStorage();
 const upload  = multer({ storage });
-
+const isPdf = (file) =>
+  file.mimetype === "application/pdf" ||
+  file.originalname.toLowerCase().endsWith(".pdf");
 // ── POST /api/upload/evaluation-materials ────────────────────────────────────
 // Uploads QP, Marking Scheme, Reference Texts to S3 only.
 // Sets exam status to Active.
@@ -36,6 +38,23 @@ router.post("/evaluation-materials", upload.any(), async (req, res) => {
       return res.status(400).json({ error: "No files uploaded." });
     }
 
+    const questionPaperFile = req.files.find(f => f.fieldname === "question_paper");
+    const markingSchemeFile = req.files.find(f => f.fieldname === "marking_scheme");
+    
+    if (!questionPaperFile) {
+      return res.status(400).json({ error: "Question paper is required." });
+    }
+    if (!isPdf(questionPaperFile)) {
+      return res.status(400).json({ error: "Question paper must be a PDF file." });
+    }
+    
+    if (!markingSchemeFile) {
+      return res.status(400).json({ error: "Marking scheme is required." });
+    }
+    if (!isPdf(markingSchemeFile)) {
+      return res.status(400).json({ error: "Marking scheme must be a PDF file." });
+    }
+        
     const uploadedFiles = [];
 
     for (const file of req.files) {
@@ -61,7 +80,7 @@ router.post("/evaluation-materials", upload.any(), async (req, res) => {
       uploadedFiles.push(key);
       console.log(`✅ Uploaded: ${key}`);
     }
-
+    
     // set exam status to Active
     await Exam.findByIdAndUpdate(examId, { status: "Active" });
     console.log(`✅ Exam ${examId} set to Active`);
