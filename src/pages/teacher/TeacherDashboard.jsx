@@ -13,6 +13,7 @@ const FEATURE_CARDS = [
 { label: "Reference Answer", icon: "📖", sub: "Approve model answers", path: "/reference-answer" },
   { label: "Revaluation", icon: "🔄", sub: "Handle student requests", path: "/revaluation" },
   {label:"My Classes",icon:"🏫",sub:"View class and courses",path:"/courseclass"},
+  { label: "API Keys", icon: "🔑", sub: "Configure AI provider keys", path: "/api-keys" }
 ];
 const TeacherDashboard = () => {
 
