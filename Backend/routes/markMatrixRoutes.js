@@ -109,6 +109,7 @@ router.get("/filters", authTeacher, async (req, res) => {
    PARSE RESULT TABLE
    Handles:
    - Format A: data row repeats Q label → | 61 | Q1 | 3 | 3 | Justification | Q2 | ...
+               also supports sub-question labels → | 61 | Q6a | 3 | 3 | Justification | Q6b | ...
    - Format B: data row skips Q label   → | 10 | 1  | 3 | 3 | Justification | 2  | ...
    - Pipe characters INSIDE justification text (e.g. S→abAA|ab)
 =============================== */
@@ -126,36 +127,40 @@ const parseResultTableForDisplay = (resultTable) => {
   const dataRow   = rows[2];
 
   // Step 1: get Q labels in order from header
+  // Supports plain labels (Q1, Q2) and sub-question labels (Q6a, Q8b, Q10c, etc.)
   const headerParts = headerRow.split("|").map((c) => c.trim());
   const qLabels = headerParts
-    .filter((c) => /^q\d+$/i.test(c))
+    .filter((c) => /^q\d+[a-z]*$/i.test(c))
     .map((c) => c.toUpperCase());
 
   if (!qLabels.length) return { questions: [] };
 
-  // Step 2: detect format — does data row repeat Q labels?
-  const isFormatA = new RegExp(`\\|\\s*${qLabels[0]}\\s*\\|`, "i").test(dataRow);
+  // Step 2: escape labels for safe use in regex (defensive, handles any future special chars)
+  const escapedLabels = qLabels.map((q) => q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+
+  // Step 3: detect format — does data row repeat Q labels?
+  const isFormatA = new RegExp(`\\|\\s*${escapedLabels[0]}\\s*\\|`, "i").test(dataRow);
 
   const questions = [];
 
   if (isFormatA) {
-    // Format A: split data row on "| Qn |" boundaries
+    // Format A: split data row on "| Qn |" or "| Qna |" boundaries
     // This correctly handles pipes inside justification text
-    const splitPattern = new RegExp(`\\|\\s*(${qLabels.join("|")})\\s*\\|`, "gi");
+    const splitPattern = new RegExp(`\\|\\s*(${escapedLabels.join("|")})\\s*\\|`, "gi");
     const matches = [...dataRow.matchAll(splitPattern)];
 
     for (let i = 0; i < matches.length; i++) {
       const label    = matches[i][1].toUpperCase();
       const segStart = matches[i].index + matches[i][0].length;
-const segEnd = matches[i + 1]?.index ?? dataRow.lastIndexOf("|", dataRow.lastIndexOf("|") - 1);
+      const segEnd   = matches[i + 1]?.index ?? dataRow.lastIndexOf("|", dataRow.lastIndexOf("|") - 1);
       const segment  = dataRow.slice(segStart, segEnd);
 
       // segment = " max | marks | justification (may contain |) "
       const firstPipe  = segment.indexOf("|");
       const secondPipe = segment.indexOf("|", firstPipe + 1);
 
-      const max    = parseFloat(segment.slice(0, firstPipe).trim());
-      const marks  = parseFloat(segment.slice(firstPipe + 1, secondPipe).trim());
+      const max     = parseFloat(segment.slice(0, firstPipe).trim());
+      const marks   = parseFloat(segment.slice(firstPipe + 1, secondPipe).trim());
       const rawJust = segment.slice(secondPipe + 1);
       const reason  = rawJust.replace(/\s*\|\s*$/, "").trim();
 
