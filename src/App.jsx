@@ -18,6 +18,7 @@ import UploadMaterials from "./pages/teacher/UploadMaterials";
 import UpdateMark from "./pages/teacher/UpdateMark";
 import Uploadscript from "./pages/teacher/uploadscript";
 import Courseclass from "./pages/teacher/CourseClass";
+import ApiKeys from "./pages/teacher/ApiKeys";
 
 /* ========== Admin Pages ========== */
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -52,6 +53,7 @@ function App() {
       <Route path="/update-mark" element={<UpdateMark />} /> 
       <Route path="/uploadscript" element={<Uploadscript />} />
       <Route path="/courseclass" element={<Courseclass />} />
+      <Route path="/api-keys" element={<ApiKeys />} />
 
       
       {/* ===== Admin Routes ===== */}
