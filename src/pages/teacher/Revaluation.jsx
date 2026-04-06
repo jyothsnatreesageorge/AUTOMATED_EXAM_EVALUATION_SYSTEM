@@ -26,6 +26,7 @@ const Revaluation = () => {
       badge: pendingCount,
     },
     { label: "My Classes",       icon: "🏫", path: "/courseclass" },
+    { label: "API Keys",         icon: "🔑", path: "/api-keys" },
   ];
 
   /* Load pending revaluation requests */
