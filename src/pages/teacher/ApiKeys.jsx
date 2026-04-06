@@ -24,9 +24,11 @@ const PROVIDERS = [
 ];
 
 // ── thin API helper ──────────────────────────────────────────────────────────
+const BASE = import.meta.env.VITE_API_URL ?? "";
+
 const api = (path, opts = {}) => {
   const token = localStorage.getItem("token");
-  return fetch(`/api/keys${path}`, {
+  return fetch(`${BASE}/api/keys${path}`, {
     ...opts,
     headers: {
       "Content-Type": "application/json",
