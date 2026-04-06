@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { label: "View Results",     icon: "📊", path: "/view-mark" },
   { label: "Reference Answer", icon: "📖", path: "/reference-answer" },
   { label: "Revaluation",      icon: "🔄", path: "/revaluation" },
+  { label: "API Keys",         icon: "🔑", path: "/api-keys" },
   { label: "My Classes",       icon: "🏫", path: "/courseclass", active: true },
 ];
 
