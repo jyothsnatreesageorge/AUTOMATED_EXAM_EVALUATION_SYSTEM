@@ -101,13 +101,14 @@ const ViewResult = () => {
 const handleExportExcel = () => {
   if (!results.length) return;
 
-  // Collect all unique question labels in the order they first appear
+  const normalizeLabel = (label) =>
+    String(label || "").replace(/\s+/g, "").toUpperCase();
+
   const qLabelSet = new Map();
   results.forEach((row) => {
     (row.questions || []).forEach((q) => {
-      if (!qLabelSet.has(q.question)) {
-        qLabelSet.set(q.question, true);
-      }
+      const key = normalizeLabel(q.question);
+      if (!qLabelSet.has(key)) qLabelSet.set(key, true);
     });
   });
   const qLabels = [...qLabelSet.keys()];
@@ -119,10 +120,9 @@ const handleExportExcel = () => {
   headers.push("Total Marks", "Max Marks", "Percentage");
 
   const excelRows = results.map((row) => {
-    // Index this row's questions by their label for O(1) lookup
     const qMap = {};
     (row.questions || []).forEach((q) => {
-      qMap[q.question] = q;
+      qMap[normalizeLabel(q.question)] = q;
     });
 
     const dataRow = [row.rollNo];
@@ -135,32 +135,27 @@ const handleExportExcel = () => {
       );
     });
 
+    // ✅ these belong inside the .map() callback
     const pct = row.maxMarks
       ? ((row.totalMarks / row.maxMarks) * 100).toFixed(1) + "%"
       : "—";
-
     dataRow.push(row.totalMarks, row.maxMarks, pct);
     return dataRow;
-  });
+  }); // ✅ .map() closes here
 
   const wsData = [headers, ...excelRows];
   const ws = XLSX.utils.aoa_to_sheet(wsData);
-
   const range = XLSX.utils.decode_range(ws["!ref"]);
   for (let C = range.s.c; C <= range.e.c; C++) {
     const cellAddress = XLSX.utils.encode_cell({ r: 0, c: C });
     if (!ws[cellAddress]) continue;
     ws[cellAddress].s = { font: { bold: true } };
   }
-
   ws["!cols"] = headers.map((h) => ({ wch: Math.max(h.length + 2, 14) }));
-
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Results");
-
   const fileName = `${selectedClass}_${selectedCourse}_${selectedExam}_Results.xlsx`
     .replace(/\s+/g, "_");
-
   XLSX.writeFile(wb, fileName);
 };
 
