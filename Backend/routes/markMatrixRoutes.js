@@ -236,5 +236,23 @@ router.get("/results", authTeacher, async (req, res) => {
     return res.status(500).json({ message: "Failed to load results", error: err.message });
   }
 });
+router.get("/results", authTeacher, async (req, res) => {
+  try {
+    console.log("Results query:", req.query);
+    const teacherId = getTeacherIdFromToken(req.user);
+    console.log("Teacher ID:", teacherId);
+
+    const validPairs = await getTeacherPairs(teacherId);
+    console.log("Valid pairs:", validPairs);
+
+    // ... rest of route
+    console.log("Raw rows found:", rows.length);
+    console.log("Filtered rows:", filteredRows.length);
+
+  } catch (err) {
+    console.error("Results load error FULL:", err); // <-- check Render logs for this
+    return res.status(500).json({ message: "Failed to load results", error: err.message });
+  }
+});
 
 export default router;
