@@ -126,52 +126,71 @@ const parseResultTableForDisplay = (resultTable) => {
   const headerRow = rows[0];
   const dataRow   = rows[2];
 
-  // Step 1: get Q labels in order from header
-  // Supports plain labels (Q1, Q2) and sub-question labels (Q6a, Q8b, Q10c, etc.)
-  // Step 1: get Q labels in order from header
-// Supports: Q1, Q6a, Q6A, Q6 A, Q7.1, A, B, C
-const headerParts = headerRow.split("|").map((c) => c.trim());
-const qLabels = headerParts
-  .filter((c) => /^(q\d+[\s.]?[a-z\d]*|[a-z])$/i.test(c))
-  .map((c) => c.replace(/\s+/g, "").toUpperCase()); 
+  const headerParts = headerRow.split("|").map((c) => c.trim());
+  const qLabels = headerParts
+    .filter((c) => /^(q\d+[\s.]?[a-z\d]*|[a-z])$/i.test(c))
+    .map((c) => c.replace(/\s+/g, "").toUpperCase());
 
   if (!qLabels.length) return { questions: [] };
 
-  // Step 2: escape labels for safe use in regex (defensive, handles any future special chars)
   const escapedLabels = qLabels.map((q) => q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
 
-  // Step 3: detect format — does data row repeat Q labels?
-// Normalize dataRow the same way — collapse "Q6 A" → "Q6A" inline
-const normalizedDataRow = dataRow.replace(/\|\s*(Q\d+)\s+([A-Z])\s*\|/gi, "|$1$2|");
+  const normalizedDataRow = dataRow.replace(/\|\s*(Q\d+)\s+([A-Z])\s*\|/gi, "|$1$2|");
 
-const isFormatA = new RegExp(`\\|\\s*${escapedLabels[0]}\\s*\\|`, "i").test(normalizedDataRow);
+  const isFormatA = new RegExp(`\\|\\s*${escapedLabels[0]}\\s*\\|`, "i").test(normalizedDataRow);
 
-if (isFormatA) {
-  const splitPattern = new RegExp(`\\|\\s*(${escapedLabels.join("|")})\\s*\\|`, "gi");
-  const matches = [...normalizedDataRow.matchAll(splitPattern)];
-  // rest unchanged, use normalizedDataRow instead of dataRow
-  for (let i = 0; i < matches.length; i++) {
-    const label    = matches[i][1].toUpperCase().replace(/\s+/g, "");
-    const segStart = matches[i].index + matches[i][0].length;
-    const segEnd   = matches[i + 1]?.index ?? normalizedDataRow.lastIndexOf("|", normalizedDataRow.lastIndexOf("|") - 1);
-    const segment  = normalizedDataRow.slice(segStart, segEnd);
+  // ✅ must be declared HERE, before the if/else
+  const questions = [];
 
-    const firstPipe  = segment.indexOf("|");
-    const secondPipe = segment.indexOf("|", firstPipe + 1);
-    const max     = parseFloat(segment.slice(0, firstPipe).trim());
-    const marks   = parseFloat(segment.slice(firstPipe + 1, secondPipe).trim());
-    const rawJust = segment.slice(secondPipe + 1);
-    const reason  = rawJust.replace(/\s*\|\s*$/, "").trim();
+  if (isFormatA) {
+    const splitPattern = new RegExp(`\\|\\s*(${escapedLabels.join("|")})\\s*\\|`, "gi");
+    const matches = [...normalizedDataRow.matchAll(splitPattern)];
 
-    if (!isNaN(max) && !isNaN(marks)) {
-      questions.push({ question: label, max, marks, deductionReason: reason });
+    for (let i = 0; i < matches.length; i++) {
+      const label    = matches[i][1].toUpperCase().replace(/\s+/g, "");
+      const segStart = matches[i].index + matches[i][0].length;
+      const segEnd   = matches[i + 1]?.index ?? normalizedDataRow.lastIndexOf("|", normalizedDataRow.lastIndexOf("|") - 1);
+      const segment  = normalizedDataRow.slice(segStart, segEnd);
+
+      const firstPipe  = segment.indexOf("|");
+      const secondPipe = segment.indexOf("|", firstPipe + 1);
+
+      const max     = parseFloat(segment.slice(0, firstPipe).trim());
+      const marks   = parseFloat(segment.slice(firstPipe + 1, secondPipe).trim());
+      const rawJust = segment.slice(secondPipe + 1);
+      const reason  = rawJust.replace(/\s*\|\s*$/, "").trim();
+
+      if (!isNaN(max) && !isNaN(marks)) {
+        questions.push({ question: label, max, marks, deductionReason: reason });
+      }
+    }
+
+  } else {
+    const qColIndices = qLabels.map((q) => ({
+      label:    q,
+      colIndex: headerParts.findIndex((c) => c.replace(/\s+/g, "").toUpperCase() === q),
+    }));
+
+    const dataCells = dataRow.split("|").map((c) => c.trim());
+
+    for (let qi = 0; qi < qColIndices.length; qi++) {
+      const { label, colIndex } = qColIndices[qi];
+
+      const max   = parseFloat(dataCells[colIndex + 1]);
+      const marks = parseFloat(dataCells[colIndex + 2]);
+
+      const nextColIndex = qColIndices[qi + 1]?.colIndex ?? (dataCells.length - 2);
+      const justCells    = dataCells.slice(colIndex + 3, nextColIndex);
+      const reason       = justCells.join("|").trim();
+
+      if (!isNaN(max) && !isNaN(marks)) {
+        questions.push({ question: label, max, marks, deductionReason: reason });
+      }
     }
   }
-}
 
   return { questions };
 };
-
 /* ===============================
    GET RESULTS
 =============================== */
