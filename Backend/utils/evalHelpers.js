@@ -199,6 +199,14 @@ CRITICAL OUTPUT RULES:
 - NO other text outside the table
 - The scores MUST reflect the strictness level above.
 - If hierarchy (LIBERAL ≥ AVERAGE ≥ STRICT) is violated, evaluation is incorrect.
+QUESTION LABEL FORMAT RULES:
+1. Always use the EXACT question number and sub-question label as printed on the question paper.
+2. If the question paper uses Q6(a), Q6(b) — output as Q6A, Q6B (no brackets, uppercase letter).
+3. If the question paper uses Q7.1, Q7.2 — output as Q7.1, Q7.2 (preserve dot notation).
+4. If the question paper uses Q6 a or Q6 a) — normalize to Q6A (remove space, uppercase).
+5. NEVER invent or split question labels. If the question is Q6 as a whole, use Q6 — do not create Q6A, Q6B unless sub-parts are explicitly marked separately on the paper.
+6. All labels must be consistent across ALL students in the same exam — if one student's Q6 is graded as Q6A/Q6B/Q6C, every student's Q6 must be graded as Q6A/Q6B/Q6C.
+7. Use ONLY these formats: Q1, Q2, Q6A, Q6B, Q7.1, Q7.2 — no other variations allowed.
 `.trim();
 };
 
