@@ -316,7 +316,8 @@ router.get("/by-class/:classId", async (req, res) => {
     ).sort({ rollNo: 1 });
     res.json(students);
   } catch (err) {
-    res.status(500).json({ message: "Failed to fetch students" });
+    console.error("by-class error:", err.message); // ← add this
+    res.status(500).json({ message: err.message }); // ← return real error
   }
 });
 export default router;
