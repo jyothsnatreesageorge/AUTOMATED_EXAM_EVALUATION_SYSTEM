@@ -108,6 +108,9 @@ const handleExportExcel = async () => {
       headers: { Authorization: `Bearer ${token}` },
     });
     roster = Array.isArray(res.data) ? res.data : [];
+    console.log("Roster fetched:", roster);
+    console.log("Name map:", nameMap);
+    console.log("Submitted roll nos:", [...submittedRollNos]);
   } catch (err) {
     console.error("Failed to fetch student roster", err);
     // Continue export without absent rows if fetch fails
