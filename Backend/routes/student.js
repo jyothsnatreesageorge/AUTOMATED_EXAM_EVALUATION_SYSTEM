@@ -305,5 +305,18 @@ router.delete("/:id", async (req, res) => {
     return res.status(400).json({ message: err.message });
   }
 });
-
+/* =======================
+   GET BY CLASS (for export)
+======================= */
+router.get("/by-class/:classId", async (req, res) => {
+  try {
+    const students = await Student.find(
+      { classId: normalizeClassId(req.params.classId) },
+      { rollNo: 1, name: 1, _id: 0 }
+    ).sort({ rollNo: 1 });
+    res.json(students);
+  } catch (err) {
+    res.status(500).json({ message: "Failed to fetch students" });
+  }
+});
 export default router;
