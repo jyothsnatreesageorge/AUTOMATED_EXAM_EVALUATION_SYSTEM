@@ -61,13 +61,52 @@ export function extractMaxMarks(fullText) {
 
 export function extractTotal(resultTable) {
   if (!resultTable) return null;
+
   const lines = resultTable
     .split("\n").map((l) => l.trim()).filter((l) => l.startsWith("|"));
+
+  // Need at least: header row, separator row, one data row
   if (lines.length < 3) return null;
-  const parts    = lines[lines.length - 1].split("|").map((c) => c.trim()).filter(Boolean);
-  const lastCell = parts[parts.length - 1];
-  const n        = Number(String(lastCell).replace(/[^\d.]/g, ""));
-  return Number.isFinite(n) && n > 0 ? n : null;
+
+  // ── Find header row and locate all "Marks Awarded" column indices ──
+  // BUG 1 FIX: Instead of blindly reading the last cell (which may be a
+  // question-label column or include choice-mark columns), we identify
+  // only the "Marks Awarded" columns by name and sum those exclusively.
+  const headerCells = lines[0].split("|").map((c) => c.trim()).filter(Boolean);
+
+  const marksAwardedIndices = headerCells.reduce((acc, cell, idx) => {
+    // Match "Marks Awarded" columns but NOT "Max Marks" columns
+    if (/marks awarded/i.test(cell) && !/max/i.test(cell)) acc.push(idx);
+    return acc;
+  }, []);
+
+  // If we can't find any "Marks Awarded" columns, fall back to last cell of data row
+  if (marksAwardedIndices.length === 0) {
+    const dataRow  = lines[lines.length - 1];
+    const parts    = dataRow.split("|").map((c) => c.trim()).filter(Boolean);
+    const lastCell = parts[parts.length - 1];
+    const n        = Number(String(lastCell).replace(/[^\d.]/g, ""));
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }
+
+  // ── Sum all "Marks Awarded" cells from the last data row ──
+  // Skip separator rows (lines that only contain dashes/pipes/spaces/colons)
+  const dataRows = lines.slice(1).filter((l) => !/^[\|\s\-:]+$/.test(l));
+  if (dataRows.length === 0) return null;
+
+  const dataRow   = dataRows[dataRows.length - 1];
+  const dataCells = dataRow.split("|").map((c) => c.trim()).filter(Boolean);
+
+  let total = 0;
+  for (const idx of marksAwardedIndices) {
+    const cell    = dataCells[idx] ?? "";
+    // BUG 2 FIX: blank cells (not attempted) are treated as 0 instead of NaN
+    const cleaned = String(cell).replace(/[^\d.]/g, "");
+    const val     = cleaned === "" ? 0 : Number(cleaned);
+    total        += Number.isFinite(val) ? val : 0;
+  }
+
+  return total > 0 ? total : null;
 }
 
 export function textToPDFBuffer(text) {
@@ -88,7 +127,7 @@ SCORING RULES:
 1. Award marks ONLY for completely correct and precise points.
 2. All key terms, steps, and correct notation MUST be present for full marks.
 3. Partial marks = exact proportion of correct content (NO rounding up).
-4. Missing key term / incorrect terminology → deduct 25% of that question’s marks.
+4. Missing key term / incorrect terminology → deduct 25% of that question's marks.
 5. Incomplete steps → deduct proportionally for each missing step.
 6. Vague answers → maximum 30% marks.
 7. Incorrect example → 0 marks for that sub-part.
