@@ -9,29 +9,25 @@ const redisOpts = {
   port:                 parseInt(redisUrl.port) || 6379,
   password:             decodeURIComponent(redisUrl.password),
   username:             redisUrl.username || "default",
-  tls:                  { rejectUnauthorized: false },
+  // ✅ Only use TLS if URL scheme is rediss://
+  tls:                  redisUrl.protocol === "rediss:" ? { rejectUnauthorized: false } : undefined,
   maxRetriesPerRequest: null,
   enableReadyCheck:     false,
-
-  // ── Stop hammering Redis when quota is exceeded ──────────────────────────
   retryStrategy(times) {
-    // Give up after 5 retries — avoids burning quota in a reconnect loop
     if (times > 5) {
       console.error("❌ Redis retry limit reached — giving up.");
-      return null; // null = stop retrying
+      return null;
     }
-    const delay = Math.min(times * 2000, 30_000); // 2s, 4s, 8s … max 30s
+    const delay = Math.min(times * 2000, 30_000);
     console.warn(`⚠️  Redis retry #${times} in ${delay}ms…`);
     return delay;
   },
-
   reconnectOnError(err) {
-    // Do NOT reconnect on quota errors — every reconnect attempt costs requests
     if (err.message.includes("max requests limit exceeded")) {
       console.error("❌ Upstash quota exceeded — reconnection suppressed.");
       return false;
     }
-    return true; // reconnect on all other errors
+    return true;
   },
 };
 
