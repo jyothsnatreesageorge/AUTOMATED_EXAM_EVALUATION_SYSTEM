@@ -234,9 +234,9 @@ QUESTION LABEL FORMAT RULES:
 3. Marks Awarded = total marks awarded across ALL sub-parts of that question.
 4. Justification cell MUST break down every sub-part individually like this:
 
-   (a) [sub-question label]: [marks awarded]/[max marks] — [one line reason]
-   (b) [sub-question label]: [marks awarded]/[max marks] — [one line reason]
-   (c) [sub-question label]: [marks awarded]/[max marks] — [one line reason]
+   (a) [sub-question label]: [marks awarded]/[max marks] — [detailed reason 2-3 lines]
+   (b) [sub-question label]: [marks awarded]/[max marks] — [detailed reason 2-3 lines]
+   (c) [sub-question label]: [marks awarded]/[max marks] — [detailed reason 2-3 lines]
    Total: [sum]/[max]
 
  
@@ -246,7 +246,7 @@ QUESTION LABEL FORMAT RULES:
    (c) Diagram: 1/3 — Rough diagram, missing labels.
    Total: 6/10
 
-5. If a question has NO sub-parts, justification is just one line explaining the mark.
+5. If a question has NO sub-parts, justification must be detailed explaining the mark.
 6. For CHOICE questions (Answer Q5 OR Q6):
    - Evaluate whichever the student attempted.
    - If student attempted BOTH, evaluate both but count only the higher mark in Total Marks.
